@@ -5,13 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>My Room App</title>
     
-    <!-- 1. 引入 Tailwind CSS -->
+    <!-- 1. Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- 2. 引入 Barcode Scanner Library -->
-    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
-    
-    <!-- 3. 設定 Import Map -->
+    <!-- 2. Import Map -->
     <script type="importmap">
     {
         "imports": {
@@ -26,31 +23,23 @@
     }
     </script>
 
-    <!-- 4. 引入 Babel -->
+    <!-- 3. Babel -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <style>
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        
         .animate-slideDown { animation: slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         @keyframes slideDown { from { opacity: 0; transform: scaleY(0.9) translateY(-10px); } to { opacity: 1; transform: scaleY(1) translateY(0); } }
-
         .animate-slideUp { animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        
-        .animate-fadeIn { animation: fadeIn 0.5s ease-out forwards; }
+        .animate-fadeIn { animation: fadeIn 0.3s ease-out forwards; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-
         .animate-bounce-slight { animation: bounceSlight 0.3s infinite alternate; }
         @keyframes bounceSlight { from { transform: translateY(0); } to { transform: translateY(-2px); } }
-        
         .animate-scaleIn { animation: scaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         @keyframes scaleIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
-
         .ease-spring { transition-timing-function: cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-
-        /* 流動背景動畫 */
         @keyframes blob {
             0% { transform: translate(0px, 0px) scale(1); }
             33% { transform: translate(30px, -50px) scale(1.1); }
@@ -58,20 +47,14 @@
             100% { transform: translate(0px, 0px) scale(1); }
         }
         .animate-blob { animation: blob 10s infinite; }
-        .animation-delay-2000 { animation-delay: 2s; }
-        .animation-delay-4000 { animation-delay: 4s; }
-
         body { -webkit-tap-highlight-color: transparent; }
-        
-        /* 隱藏掃描器多餘的邊框 */
-        #reader { border: none !important; }
+        #reader { width: 100%; border: none !important; }
         #reader__scan_region { background: transparent; }
     </style>
 </head>
 <body class="bg-gray-50">
     <div id="root"></div>
 
-    <!-- 5. 主要應用程式邏輯 -->
     <script type="text/babel" data-type="module">
         import React, { useState, useEffect, useMemo, useRef } from 'react';
         import { createRoot } from 'react-dom/client';
@@ -79,8 +62,8 @@
             Search, Plus, MapPin, Trash2, Save, X, Zap, Box, Settings, 
             LogOut, Sparkles, Moon, Sun, Check, Home, FolderOpen, User, 
             ChevronRight, Edit3, ArrowRight, Globe, LayoutGrid, Mail, Lock, 
-            AlertCircle, ChevronDown, Database, PenLine, MoreHorizontal, 
-            ScanLine, Minus, History, AlertTriangle, Calendar, Package
+            AlertTriangle, ChevronDown, Package, Layers, PlusCircle, MoreVertical,
+            ScanLine, Minus, History, Calendar
         } from 'lucide-react';
         
         import { initializeApp } from "firebase/app";
@@ -91,7 +74,6 @@
         import { 
             getFirestore, collection, addDoc, deleteDoc, updateDoc, doc, onSnapshot, query, orderBy, serverTimestamp, where 
         } from "firebase/firestore";
-        import { getAnalytics } from "firebase/analytics";
 
         // ==========================================
         // ▼ 您的 Firebase 設定 ▼
@@ -108,11 +90,10 @@
         // ==========================================
         
         const app = initializeApp(firebaseConfig);
-        const analytics = getAnalytics(app);
         const auth = getAuth(app);
         const db = getFirestore(app);
         const provider = new GoogleAuthProvider();
-        const appId = "my-room-v5-mobile";
+        const appId = "my-room-v10-fix2";
 
         const THEME_COLORS = {
             blue: { name: 'Ocean', from: 'from-blue-600', to: 'to-cyan-500', blob: 'bg-blue-300', text: 'text-blue-600', bg: 'bg-blue-500', border: 'border-blue-500', lightBg: 'bg-blue-50' },
@@ -122,99 +103,116 @@
             green: { name: 'Emerald', from: 'from-emerald-600', to: 'to-teal-400', blob: 'bg-emerald-300', text: 'text-emerald-600', bg: 'bg-emerald-500', border: 'border-emerald-500', lightBg: 'bg-emerald-50' },
         };
 
-        const FUN_HEADLINES = {
-            'zh-TW': ["庫存狀況如何？", "今天盤點了嗎？", "掃描入庫吧！", "整理是種修行。", "倉庫小管家在此。", "別讓物品過期囉。", "找東西？問我吧。", "空間利用大師。", "數據化你的生活。", "井井有條。", "又買新東西了？", "隨手記錄，輕鬆管理。"],
-            'zh-CN': ["库存状况如何？", "今天盘点了吗？", "扫描入库吧！", "整理是种修行。", "仓库小管家在此。", "别让物品过期啰。", "找东西？问我吧。", "空间利用大师。", "数据化你的生活。", "井井有条。", "又买新东西了？", "随手记录，轻松管理。"],
-            'en': ["Stock check?", "Scan it in!", "Organize your life.", "Inventory master.", "Don't let it expire.", "Where is it? I know.", "Space optimized.", "Data driven life.", "Keep it tidy.", "New stuff?", "Easy manage.", "Warehouse Mode."]
-        };
-
         const TRANSLATIONS = {
             'zh-TW': {
-                tab_home: "首頁", tab_explore: "空間", tab_profile: "設定", tab_management: "後台", tab_history: "紀錄",
+                tab_home: "首頁", tab_space: "空間", tab_profile: "設定",
                 welcome: "歡迎回到", greeting: { morning: "早安", afternoon: "午安", evening: "晚安" },
-                search_placeholder: "搜尋、輸入名稱或掃碼...",
-                save_btn: "入庫", login_btn: "登入", logout: "登出",
-                confirm_delete: "移除此項目？", delete_loc_confirm: "確定刪除？",
-                manage_rooms: "房間", manage_locations: "位置", manage_items: "物品",
-                add_new: "新增", search: "搜尋...", name: "名稱", icon: "圖標", belongs_to: "所屬",
+                search_placeholder: "搜尋物品...",
+                save_btn: "入庫", login_btn: "會員登入", logout: "登出帳號",
+                confirm_delete: "確定移除？", delete_room_confirm: "刪除房間會連同清空內容，確定？",
+                add_new: "新增", search: "搜尋...", name: "名稱", icon: "圖標",
                 my_room: "我的房間", cancel: "取消", confirm: "確定",
                 select_room: "選擇房間", select_location: "選擇位置",
-                welcome_title: "My Room Pro", welcome_subtitle: "專業個人倉儲系統",
-                feature_1: "庫存追蹤", feature_2: "條碼掃描", feature_3: "效期管理",
-                login_btn: "會員登入", login_hint: "如果您已是用戶，請按此登入",
-                select_lang: "選擇語言", no_google: "沒有 Google？使用電郵及密碼註冊登入",
-                email_ph: "電子郵件", password_ph: "密碼 (至少6位)", username_ph: "用戶名",
+                welcome_title: "My Room", welcome_subtitle: "你的個人物品宇宙",
+                feature_1: "隨手記錄", feature_2: "輕鬆搜尋", feature_3: "空間管理",
+                login_hint: "如果您已是用戶，請按此登入",
+                no_google: "使用電郵登入",
+                email_ph: "電子郵件", password_ph: "密碼", username_ph: "用戶名",
                 login_submit: "登入", register_submit: "註冊",
-                scan_btn: "掃描條碼", scan_hint: "對準條碼或 QR Code",
-                qty: "數量", price: "價格", barcode: "條碼", expiry: "到期日",
-                low_stock: "庫存不足", expiring: "即將過期", total_value: "總資產",
-                history_add: "新增", history_del: "刪除", history_upd: "更新",
-                unknown_loc: "未分類", item_found: "找到物品！", loc_found: "找到位置！", not_found_create: "找不到條碼，要新增嗎？",
+                select_lang: "選擇語言",
                 switch_to_register: "還沒有帳號？去註冊", switch_to_login: "已有帳號？去登入",
-                items_stored: "件物品", empty_room: "空空如也", close: "關閉"
+                qty: "數量", price: "價格", expiry: "到期日",
+                low_stock: "補貨清單", expiring: "即將過期", total_value: "總資產",
+                items_stored: "件物品", empty_room: "這裡空空的", 
+                fab_item: "物品", fab_location: "位置", fab_room: "房間",
+                edit: "編輯", delete: "刪除",
+                toast_added: "已新增", toast_deleted: "已刪除", toast_updated: "已更新",
+                settings: "設定", appearance: "外觀", theme_color: "主題色", language: "語言"
+            },
+             'en': {
+                tab_home: "Home", tab_space: "Space", tab_profile: "Settings",
+                welcome: "Welcome back", greeting: { morning: "Good Morning", afternoon: "Good Afternoon", evening: "Good Evening" },
+                search_placeholder: "Search items...",
+                save_btn: "Save", login_btn: "Login", logout: "Log Out",
+                confirm_delete: "Delete item?", delete_room_confirm: "Delete room and all contents?",
+                add_new: "Add", search: "Search...", name: "Name", icon: "Icon",
+                my_room: "My Room", cancel: "Cancel", confirm: "Confirm",
+                select_room: "Select Room", select_location: "Select Location",
+                welcome_title: "My Room", welcome_subtitle: "Your personal inventory universe",
+                feature_1: "Track Items", feature_2: "Easy Search", feature_3: "Manage Spaces",
+                login_hint: "Already a user? Login here",
+                no_google: "Email Login",
+                email_ph: "Email", password_ph: "Password", username_ph: "Username",
+                login_submit: "Login", register_submit: "Register",
+                select_lang: "Select Language",
+                switch_to_register: "Need account? Register", switch_to_login: "Have account? Login",
+                qty: "Qty", price: "Price", expiry: "Expiry",
+                low_stock: "Low Stock", expiring: "Expiring", total_value: "Total Value",
+                items_stored: "items", empty_room: "Nothing here", 
+                fab_item: "Item", fab_location: "Location", fab_room: "Room",
+                edit: "Edit", delete: "Delete",
+                toast_added: "Added", toast_deleted: "Deleted", toast_updated: "Updated",
+                settings: "Settings", appearance: "Appearance", theme_color: "Theme Color", language: "Language"
             },
             'zh-CN': {
-               tab_home: "首页", tab_explore: "空间", tab_profile: "设置", tab_management: "后台", tab_history: "记录",
-               welcome: "欢迎回到", greeting: { morning: "早上好", afternoon: "下午好", evening: "晚上好" },
-               search_placeholder: "搜索或直接输入...", select_location: "选择存放位置",
-               save_btn: "入库", login_btn: "登录", logout: "退出",
-               confirm_delete: "移除此项目？", delete_loc_confirm: "确定删除？",
-               manage_rooms: "房间", manage_locations: "位置", manage_items: "物品",
-               add_new: "新增", search: "搜索...", name: "名称", icon: "图标", belongs_to: "所属",
-               my_room: "我的房间", cancel: "取消", confirm: "确定",
-               select_room: "选择房间", select_location: "选择位置",
-               welcome_title: "My Room Pro", welcome_subtitle: "专业个人仓储系统",
-               feature_1: "库存追踪", feature_2: "条码扫描", feature_3: "效期管理",
-               login_btn: "会员登录", login_hint: "如果您已是用户，请按此登录",
-               select_lang: "选择语言", no_google: "没有 Google？使用电邮及密码注册登录",
-               email_ph: "电子邮箱", password_ph: "密码 (至少6位)", username_ph: "用户名",
-               login_submit: "登录", register_submit: "注册",
-               scan_btn: "扫描条码", scan_hint: "对准条码或 QR Code",
-               qty: "数量", price: "价格", barcode: "条码", expiry: "到期日",
-               low_stock: "库存不足", expiring: "即将过期", total_value: "总资产",
-               history_add: "新增", history_del: "删除", history_upd: "更新",
-               unknown_loc: "未分类", item_found: "找到物品！", loc_found: "找到位置！", not_found_create: "找不到条码，要新增吗？",
-               switch_to_register: "还没有账号？去注册", switch_to_login: "已有账号？去登录",
-               items_stored: "件物品", empty_room: "空空如也", close: "关闭"
-            },
-            'en': {
-               tab_home: "Home", tab_explore: "Explore", tab_profile: "Settings", tab_management: "Admin", tab_history: "Logs",
-               welcome: "Welcome back", greeting: { morning: "Good Morning", afternoon: "Good Afternoon", evening: "Good Evening" },
-               search_placeholder: "Search, type or scan...",
-               save_btn: "Save", login_btn: "Login", logout: "Log Out",
-               confirm_delete: "Remove?", delete_loc_confirm: "Delete?",
-               manage_rooms: "Rooms", manage_locations: "Locations", manage_items: "Items",
-               add_new: "Add New", search: "Search...", name: "Name", icon: "Icon", belongs_to: "Belongs To",
-               my_room: "My Room", cancel: "Cancel", confirm: "Confirm",
-               select_room: "Select Room", select_location: "Select Location",
-               welcome_title: "My Room Pro", welcome_subtitle: "Personal WMS",
-               feature_1: "Inventory", feature_2: "Barcode Scan", feature_3: "Expiry",
-               login_btn: "Login", login_hint: "User Login",
-               select_lang: "Language", no_google: "Email Login",
-               email_ph: "Email", password_ph: "Password", username_ph: "Username",
-               login_submit: "Login", register_submit: "Register",
-               scan_btn: "Scan", scan_hint: "Scan Barcode/QR",
-               qty: "Qty", price: "Price", barcode: "Barcode", expiry: "Expiry",
-               low_stock: "Low Stock", expiring: "Expiring", total_value: "Total Value",
-               history_add: "Add", history_del: "Del", history_upd: "Upd",
-               unknown_loc: "Unknown", item_found: "Item Found!", loc_found: "Location Found!", not_found_create: "Code not found, create?",
-               switch_to_register: "Need account? Register", switch_to_login: "Have account? Login",
-               items_stored: "items", empty_room: "Nothing here yet", close: "Close"
+                tab_home: "首页", tab_space: "空间", tab_profile: "设置",
+                welcome: "欢迎回到", greeting: { morning: "早上好", afternoon: "下午好", evening: "晚上好" },
+                search_placeholder: "搜索物品...",
+                save_btn: "入库", login_btn: "会员登录", logout: "退出账号",
+                confirm_delete: "确定移除？", delete_room_confirm: "删除房间会连同清空内容，确定？",
+                add_new: "新增", search: "搜索...", name: "名称", icon: "图标",
+                my_room: "我的房间", cancel: "取消", confirm: "确定",
+                select_room: "选择房间", select_location: "选择位置",
+                welcome_title: "My Room", welcome_subtitle: "你的个人物品宇宙",
+                feature_1: "随手记录", feature_2: "轻松搜索", feature_3: "空间管理",
+                login_hint: "如果您已是用户，请按此登录",
+                no_google: "使用电邮登录",
+                email_ph: "电子邮箱", password_ph: "密码", username_ph: "用户名",
+                login_submit: "登录", register_submit: "注册",
+                select_lang: "选择语言",
+                switch_to_register: "还没有账号？去注册", switch_to_login: "已有账号？去登录",
+                qty: "数量", price: "价格", expiry: "到期日",
+                low_stock: "补货清单", expiring: "即将过期", total_value: "总资产",
+                items_stored: "件物品", empty_room: "这里空空的", 
+                fab_item: "物品", fab_location: "位置", fab_room: "房间",
+                edit: "编辑", delete: "删除",
+                toast_added: "已新增", toast_deleted: "已删除", toast_updated: "已更新",
+                settings: "设置", appearance: "外观", theme_color: "主题色", language: "语言"
             }
         };
 
-        const EMOJI_CATEGORIES = { "常用": ["📦", "🧥", "✏️", "🗄️"], "家具": ["🛏️", "🛋️", "🪑"], "3C": ["💻", "📱", "📷"], "食物": ["🍎", "☕", "🍷"] };
-
-        // --- Utils ---
-        const addLog = async (userId, action, itemName, details) => {
-            try {
-                await addDoc(collection(db, 'artifacts', appId, 'users', userId, 'logs'), {
-                    action, itemName, details, createdAt: serverTimestamp()
-                });
-            } catch (e) { console.error("Log failed", e); }
+        // --- Components ---
+        const Toast = ({ message, type, onClose }) => {
+            useEffect(() => { const t = setTimeout(onClose, 2000); return () => clearTimeout(t); }, []);
+            return (
+                <div className={`fixed top-6 left-1/2 -translate-x-1/2 px-6 py-3 rounded-full shadow-2xl z-[150] animate-toast flex items-center gap-2 font-bold text-sm bg-white/90 text-black backdrop-blur-xl border border-white/20`}>
+                    <Check size={16} className="text-green-500" /> {message}
+                </div>
+            );
         };
 
-        // --- Components ---
+        const FloatingActionButton = ({ onAction, isDark, t }) => {
+            const [isOpen, setIsOpen] = useState(false);
+            return (
+                <div className="absolute bottom-6 right-6 z-50 flex flex-col items-end gap-3">
+                    {isOpen && (
+                        <div className="flex flex-col items-end gap-3 animate-slideUp">
+                            <button onClick={() => { onAction('room'); setIsOpen(false); }} className={`flex items-center gap-3 px-4 py-2 rounded-full shadow-lg font-bold text-sm ${isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-800'}`}>
+                                {t.fab_room} <div className="p-2 bg-purple-500 rounded-full text-white"><Home size={16}/></div>
+                            </button>
+                            <button onClick={() => { onAction('location'); setIsOpen(false); }} className={`flex items-center gap-3 px-4 py-2 rounded-full shadow-lg font-bold text-sm ${isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-800'}`}>
+                                {t.fab_location} <div className="p-2 bg-blue-500 rounded-full text-white"><FolderOpen size={16}/></div>
+                            </button>
+                            <button onClick={() => { onAction('item'); setIsOpen(false); }} className={`flex items-center gap-3 px-4 py-2 rounded-full shadow-lg font-bold text-sm ${isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-800'}`}>
+                                {t.fab_item} <div className="p-2 bg-green-500 rounded-full text-white"><Package size={16}/></div>
+                            </button>
+                        </div>
+                    )}
+                    <button onClick={() => setIsOpen(!isOpen)} className={`w-14 h-14 rounded-full shadow-xl flex items-center justify-center transition-transform active:scale-90 ${isOpen ? 'bg-red-500 rotate-45' : 'bg-black dark:bg-white'} ${isOpen ? 'text-white' : 'text-white dark:text-black'}`}><Plus size={28} strokeWidth={3} /></button>
+                </div>
+            );
+        };
+
         const AuroraBackground = ({ isDark, colorTheme }) => (
             <div className={`absolute inset-0 overflow-hidden pointer-events-none transition-colors duration-1000 ${isDark ? 'bg-black' : 'bg-white'}`}>
                 <div className={`absolute top-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full mix-blend-multiply filter blur-[100px] opacity-30 animate-blob ${isDark ? `bg-${colorTheme}-900 mix-blend-lighten opacity-15` : `${THEME_COLORS[colorTheme]?.blob || 'bg-blue-300'}`}`}></div>
@@ -223,105 +221,55 @@
             </div>
         );
 
-        // Custom Confirmation Modal
-        const ConfirmModal = ({ isOpen, message, onConfirm, onCancel, isDark }) => {
+        const GlassInput = ({ value, onChange, placeholder, isDark, type="text", className = "", icon: Icon }) => (
+            <div className={`flex items-center gap-2 px-3 py-3.5 rounded-2xl border transition-all ${isDark ? 'bg-[#1c1c1e]/60 border-white/10 focus-within:bg-[#1c1c1e]/90 focus-within:border-white/30' : 'bg-white/50 border-white/60 focus-within:bg-white/90 focus-within:border-blue-200 shadow-sm'} ${className}`}>
+                {Icon && <Icon size={18} className={isDark ? 'text-white/40' : 'text-gray-400'} />}
+                <input 
+                    type={type} value={value} onChange={onChange} placeholder={placeholder} 
+                    className={`bg-transparent border-none outline-none text-base font-bold w-full placeholder-opacity-40 ${isDark ? 'text-white placeholder-white' : 'text-gray-900 placeholder-gray-400'}`} 
+                />
+            </div>
+        );
+
+        const GlassInputInner = ({ value, onChange, placeholder, isDark, type="text", className = "", icon: Icon }) => (
+             <div className={`flex items-center gap-2 px-3 py-3.5 rounded-2xl border transition-all ${isDark ? 'bg-[#1c1c1e]/60 border-white/10 focus-within:bg-[#1c1c1e]/90 focus-within:border-white/30' : 'bg-white/50 border-white/60 focus-within:bg-white/90 focus-within:border-blue-200 shadow-sm'} ${className}`}>
+                {Icon && <Icon size={18} className={isDark ? 'text-white/40' : 'text-gray-400'} />}
+                <input type={type} value={value} onChange={onChange} placeholder={placeholder} className={`bg-transparent border-none outline-none text-base font-bold w-full placeholder-opacity-40 ${isDark ? 'text-white placeholder-white' : 'text-gray-900 placeholder-gray-400'}`} />
+            </div>
+        );
+
+        const EditModal = ({ isOpen, type, data, onClose, onSave, onDelete, t, isDark }) => {
             if (!isOpen) return null;
+            const [formData, setFormData] = useState({ name: '', icon: '📦', quantity: 1, price: '', expiryDate: '', ...data });
             return (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 animate-fadeIn">
-                    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onCancel} />
-                    <div className={`relative w-full max-w-xs rounded-3xl p-6 shadow-2xl animate-scaleIn border backdrop-blur-xl ${isDark ? 'bg-gray-900/90 border-gray-700 text-white' : 'bg-white/90 border-white/50 text-gray-900'}`}>
-                        <h3 className="text-lg font-bold mb-4 text-center">{message}</h3>
-                        <div className="flex gap-3">
-                            <button onClick={onCancel} className={`flex-1 py-3 rounded-xl font-bold text-sm ${isDark ? 'bg-white/10 hover:bg-white/20' : 'bg-gray-100 hover:bg-gray-200'}`}>{TRANSLATIONS['zh-TW'].cancel}</button>
-                            <button onClick={onConfirm} className="flex-1 py-3 rounded-xl font-bold text-sm bg-red-500 text-white hover:bg-red-600">{TRANSLATIONS['zh-TW'].confirm}</button>
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+                    <div className={`relative w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-scaleIn border backdrop-blur-xl ${isDark ? 'bg-[#1c1c1e]/95 border-white/10 text-white' : 'bg-white/95 border-white/50 text-gray-900'}`}>
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-xl font-black">{data.id ? t.edit : t.add_new} {t[`fab_${type}`]}</h3>
+                            <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-500/10"><X size={20}/></button>
                         </div>
-                    </div>
-                </div>
-            );
-        };
-
-        const ScannerModal = ({ isOpen, onClose, onScan, isDark, t }) => {
-            const scannerRef = useRef(null);
-            
-            useEffect(() => {
-                if (isOpen) {
-                    const timer = setTimeout(() => {
-                         if (!window.Html5QrcodeScanner) {
-                            console.error("Scanner lib not loaded");
-                            return;
-                        }
-                        if (scannerRef.current) return; 
-
-                        const scanner = new window.Html5QrcodeScanner(
-                            "reader", 
-                            { 
-                                fps: 10, 
-                                qrbox: { width: 250, height: 250 },
-                                aspectRatio: 1.0
-                            }, 
-                            false
-                        );
-                        
-                        scanner.render((decodedText) => {
-                            onScan(decodedText);
-                            onClose();
-                        }, (err) => {});
-                        
-                        scannerRef.current = scanner;
-                    }, 300);
-
-                    return () => {
-                        clearTimeout(timer);
-                        if (scannerRef.current) {
-                            scannerRef.current.clear().catch(console.error);
-                            scannerRef.current = null;
-                        }
-                    };
-                }
-            }, [isOpen]);
-
-            if (!isOpen) return null;
-            return (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-fadeIn">
-                    <div className="absolute inset-0 bg-black/90 backdrop-blur-sm" onClick={onClose} />
-                    <div className={`relative w-full max-w-sm rounded-3xl p-4 shadow-2xl animate-scaleIn border overflow-hidden ${isDark ? 'bg-gray-900 border-gray-700' : 'bg-white border-white'}`}>
-                        <div className="flex justify-between items-center mb-4 px-2">
-                            <h3 className={`font-bold ${isDark?'text-white':'text-black'}`}>{t.scan_btn}</h3>
-                            <button onClick={onClose}><X size={20} className={isDark?'text-white':'text-black'}/></button>
-                        </div>
-                        <div id="reader" className="rounded-xl overflow-hidden bg-black min-h-[300px]"></div>
-                        <p className="text-center text-xs opacity-50 mt-4">{t.scan_hint}</p>
-                    </div>
-                </div>
-            );
-        };
-
-        const CustomDropdown = ({ options, value, onChange, placeholder, isDark }) => {
-            const [isOpen, setIsOpen] = useState(false);
-            const selected = options.find(o => o.id === value);
-            return (
-                <div className="relative w-full">
-                    <button onClick={() => setIsOpen(!isOpen)} className={`w-full flex items-center justify-between px-3 py-3 rounded-xl text-xs font-bold border transition-all ${isDark ? 'bg-[#1c1c1e]/60 border-white/20 text-white hover:bg-white/10' : 'bg-white/50 border-white/60 text-gray-800 hover:bg-white/80'}`}>
-                        <span className="truncate">{selected ? selected.name : placeholder}</span><ChevronDown size={14} className="opacity-50"/>
-                    </button>
-                    {isOpen && (
-                        <React.Fragment>
-                            <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)}/>
-                            <div className={`absolute top-full mt-1 left-0 w-full z-50 rounded-xl shadow-xl border overflow-hidden max-h-48 overflow-y-auto no-scrollbar animate-slideDown backdrop-blur-xl ${isDark ? 'bg-gray-900/95 border-gray-700' : 'bg-white/95 border-white/50'}`}>
-                                {options.map(opt => (
-                                    <button key={opt.id} onClick={() => { onChange(opt.id); setIsOpen(false); }} className={`w-full text-left px-3 py-3 text-xs font-bold border-b last:border-0 transition-colors ${isDark ? 'border-white/5 hover:bg-white/10 text-gray-300' : 'border-gray-100 hover:bg-gray-50 text-gray-600'} ${value === opt.id ? (isDark ? 'bg-white/20 text-white' : 'bg-blue-50 text-blue-600') : ''}`}>
-                                        {opt.name}
-                                    </button>
-                                ))}
+                        <div className="space-y-4">
+                            <div className="flex gap-3">
+                                <div className="w-16"><GlassInput value={formData.icon} onChange={e => setFormData({...formData, icon: e.target.value})} isDark={isDark} className="text-center text-2xl" placeholder="Icon"/></div>
+                                <GlassInput value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} isDark={isDark} placeholder={t.name} className="flex-1"/>
                             </div>
-                        </React.Fragment>
-                    )}
+                            {type === 'item' && (
+                                <div className="grid grid-cols-2 gap-3">
+                                    <GlassInput type="number" icon={Box} value={formData.quantity} onChange={e => setFormData({...formData, quantity: e.target.value})} isDark={isDark} placeholder={t.qty} />
+                                    <GlassInput type="number" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} isDark={isDark} placeholder={t.price} />
+                                    <div className="col-span-2"><GlassInput type="date" icon={Calendar} value={formData.expiryDate} onChange={e => setFormData({...formData, expiryDate: e.target.value})} isDark={isDark} /></div>
+                                </div>
+                            )}
+                            <button onClick={() => onSave(formData)} className={`w-full py-4 rounded-2xl font-bold text-lg shadow-lg active:scale-95 transition-all ${isDark ? 'bg-white text-black' : 'bg-black text-white'}`}>{t.confirm}</button>
+                            {data.id && <button onClick={() => onDelete(data.id)} className="w-full py-3 text-red-500 font-bold text-sm hover:bg-red-500/10 rounded-xl transition-colors">{t.delete}</button>}
+                        </div>
+                    </div>
                 </div>
             );
         };
 
-        // NEW: Location Details Modal
-        const LocationDetailModal = ({ location, items, onClose, isDark, t }) => {
+        const LocationDetailModal = ({ location, items, onClose, onEdit, isDark, t }) => {
             if (!location) return null;
             const locItems = items.filter(i => i.locationId === location.id);
             return (
@@ -329,15 +277,16 @@
                     <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
                     <div className={`relative w-full max-w-sm max-h-[70vh] flex flex-col rounded-3xl shadow-2xl animate-scaleIn border backdrop-blur-xl ${isDark ? 'bg-gray-900/90 border-gray-700 text-white' : 'bg-white/90 border-white/50 text-gray-900'}`}>
                         <div className="p-6 border-b border-white/10 flex justify-between items-center shrink-0">
-                            <div className="flex items-center gap-3">
-                                <span className="text-3xl">{location.icon}</span>
-                                <div><h3 className="text-xl font-black">{location.name}</h3><p className="text-xs opacity-50">{locItems.length} {t.items_stored}</p></div>
-                            </div>
+                            <div className="flex items-center gap-3"><span className="text-3xl">{location.icon}</span><div><h3 className="text-xl font-black">{location.name}</h3><p className="text-xs opacity-50">{locItems.length} {t.items_stored}</p></div></div>
                             <button onClick={onClose} className={`p-2 rounded-full ${isDark?'hover:bg-white/10':'hover:bg-black/5'}`}><X size={20}/></button>
                         </div>
                         <div className="overflow-y-auto p-4 space-y-2 no-scrollbar">
                              {locItems.length > 0 ? locItems.map(item => (
-                                <div key={item.id} className={`flex items-center gap-3 p-3 rounded-2xl border ${isDark ? 'bg-white/5 border-white/5' : 'bg-white/50 border-white/40'}`}>
+                                <div 
+                                    key={item.id} 
+                                    onClick={() => onEdit && onEdit(item)}
+                                    className={`flex items-center gap-3 p-3 rounded-2xl border cursor-pointer transition-all active:scale-95 hover:bg-white/10 ${isDark ? 'bg-white/5 border-white/5' : 'bg-white/50 border-white/40'}`}
+                                >
                                     <span className="text-2xl">{item.icon}</span>
                                     <div className="flex-1 min-w-0">
                                         <div className="font-bold text-sm truncate">{item.name}</div>
@@ -351,147 +300,183 @@
             );
         };
 
-        const GlassInput = ({ value, onChange, placeholder, isDark, type="text", className = "", icon: Icon, onKeyDown }) => (
-            <div className={`flex items-center gap-2 px-3 py-3 rounded-xl border transition-all ${isDark ? 'bg-[#1c1c1e]/60 border-white/20 focus-within:bg-[#1c1c1e]/80 focus-within:border-white/40' : 'bg-white/50 border-white/60 focus-within:bg-white/80 focus-within:border-white/80 shadow-sm'} ${className}`}>
-                {Icon && <Icon size={16} className={isDark ? 'text-white/50' : 'text-gray-400'} />}
-                <input 
-                    type={type} value={value} onChange={onChange} onKeyDown={onKeyDown} placeholder={placeholder} 
-                    className={`bg-transparent border-none outline-none text-sm font-bold w-full placeholder-opacity-50 ${isDark ? 'text-white placeholder-white' : 'text-gray-900 placeholder-gray-400'}`} 
-                />
-            </div>
-        );
+        const ProfileModal = ({ user, onClose, onLogout, t, isDark, config, setConfig }) => {
+            if (!user) return null;
+            return (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 animate-fadeIn">
+                    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+                    <div className={`relative w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-scaleIn border backdrop-blur-xl ${isDark ? 'bg-gray-900/90 border-gray-700 text-white' : 'bg-white/90 border-white/50 text-gray-900'}`}>
+                        <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10"><X size={20}/></button>
+                        
+                        <div className="flex flex-col items-center gap-4 mb-6">
+                            <div className="w-20 h-20 rounded-full border-4 border-white shadow-lg overflow-hidden">
+                                <img src={user.photoURL} className="w-full h-full object-cover"/>
+                            </div>
+                            <div className="text-center">
+                                <h2 className="text-xl font-black">{user.displayName || 'User'}</h2>
+                                <p className="text-xs opacity-50">{user.email}</p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div>
+                                <div className="text-xs font-bold opacity-50 uppercase mb-2 pl-1">{t.appearance}</div>
+                                <div className={`p-1 rounded-2xl grid grid-cols-2 gap-1 ${isDark ? 'bg-black/20' : 'bg-gray-100'}`}>
+                                    <button onClick={() => setConfig({...config, mode: 'light'})} className={`py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${config.mode === 'light' ? 'bg-white shadow-sm text-black' : 'opacity-50'}`}><Sun size={14}/> Light</button>
+                                    <button onClick={() => setConfig({...config, mode: 'dark'})} className={`py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${config.mode === 'dark' ? 'bg-gray-700 shadow-sm text-white' : 'opacity-50'}`}><Moon size={14}/> Dark</button>
+                                </div>
+                            </div>
+                            <div>
+                                <div className="text-xs font-bold opacity-50 uppercase mb-2 pl-1">{t.theme_color}</div>
+                                <div className="flex justify-between px-2">
+                                    {Object.keys(THEME_COLORS).map(key => (<button key={key} onClick={() => setConfig({...config, color: key})} className={`w-8 h-8 rounded-full flex items-center justify-center transition-transform ${THEME_COLORS[key].blob.replace('bg-', 'bg-').replace('-300', '-500')} ${config.color === key ? 'scale-110 ring-2 ring-offset-2 ' + (isDark ? 'ring-offset-black' : 'ring-offset-white') : 'opacity-50'}`}>{config.color === key && <Check size={14} className="text-white"/>}</button>))}
+                                </div>
+                            </div>
+                            <div>
+                                <div className="text-xs font-bold opacity-50 uppercase mb-2 pl-1">{t.language}</div>
+                                <div className={`flex flex-col rounded-2xl overflow-hidden ${isDark ? 'bg-black/20' : 'bg-gray-100'}`}>
+                                    {['zh-TW', 'zh-CN', 'en'].map(lang => (
+                                        <button key={lang} onClick={() => setConfig({...config, lang})} className={`p-3 text-xs font-bold flex justify-between hover:bg-black/5 dark:hover:bg-white/5`}>
+                                            <span>{lang === 'zh-TW' ? '繁體' : lang === 'zh-CN' ? '简体' : 'English'}</span>
+                                            {config.lang === lang && <Check size={14} />}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        <button onClick={onLogout} className="w-full py-3.5 bg-red-500/10 text-red-500 font-bold rounded-2xl text-sm mt-6 hover:bg-red-500/20 transition-colors flex items-center justify-center gap-2">
+                            <LogOut size={16}/> {t.logout}
+                        </button>
+                    </div>
+                </div>
+            );
+        };
+
+        const IconPicker = ({ selectedIcon, onSelect, onClose, isDark }) => {
+            const [activeCategory, setActiveCategory] = useState("常用");
+            return (
+                <div className={`absolute top-full left-0 mt-2 z-50 w-full backdrop-blur-xl border shadow-xl rounded-2xl overflow-hidden animate-slideDown origin-top ${isDark ? 'bg-gray-800/95 border-gray-700' : 'bg-white/95 border-gray-200'}`}>
+                    <div className={`flex overflow-x-auto px-4 py-2 gap-2 no-scrollbar border-b ${isDark ? 'border-gray-700' : 'border-gray-100'}`}>
+                        {Object.keys(EMOJI_CATEGORIES).map(cat => (
+                            <button key={cat} onClick={(e) => { e.preventDefault(); setActiveCategory(cat); }} className={`px-3 py-1 rounded-full text-[10px] font-bold transition-all ${activeCategory === cat ? (isDark ? 'bg-white text-black' : 'bg-black text-white') : (isDark ? 'bg-gray-700 text-gray-400' : 'bg-gray-100 text-gray-500')}`}>
+                                {cat}
+                            </button>
+                        ))}
+                    </div>
+                    <div className="p-3 grid grid-cols-6 gap-2 max-h-40 overflow-y-auto">
+                        {EMOJI_CATEGORIES[activeCategory].map((emoji, idx) => (
+                            <button key={idx} onClick={(e) => { e.preventDefault(); onSelect(emoji); onClose(); }} className={`aspect-square flex items-center justify-center text-xl rounded-xl transition-all ${selectedIcon === emoji ? 'bg-blue-500 text-white scale-105' : (isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-100')}`}>
+                                {emoji}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            );
+        };
 
         function App() {
             const [user, setUser] = useState(null);
             const [authLoading, setAuthLoading] = useState(true); 
             const [onboardingStep, setOnboardingStep] = useState('welcome');
-            const [viewingLocation, setViewingLocation] = useState(null); 
             
-            // Auth
-            const [showEmailAuth, setShowEmailAuth] = useState(false);
-            const [isSignUp, setIsSignUp] = useState(false);
-            const [email, setEmail] = useState('');
-            const [password, setPassword] = useState('');
-            const [username, setUsername] = useState('');
-            const [authError, setAuthError] = useState('');
-            const [rawError, setRawError] = useState('');
-            const [showErrorDetails, setShowErrorDetails] = useState(false);
-            
-            // UI
-            const [showProfileModal, setShowProfileModal] = useState(false);
-            const [showRoomMenu, setShowRoomMenu] = useState(false);
-            const [showScanner, setShowScanner] = useState(false);
+            // UI State
             const [activeTab, setActiveTab] = useState('home');
-            const [manageTab, setManageTab] = useState('items'); 
+            const [config, setConfig] = useState(() => JSON.parse(localStorage.getItem('my_room_config')) || { lang: 'zh-TW', mode: 'light', color: 'blue' });
+            const [toast, setToast] = useState(null);
             
             // Data
             const [items, setItems] = useState([]);
             const [locations, setLocations] = useState([]);
             const [rooms, setRooms] = useState([]);
-            const [logs, setLogs] = useState([]);
             const [currentRoom, setCurrentRoom] = useState({ id: 'default', name: 'My Room' });
 
-            // Editing
-            const [editingId, setEditingId] = useState(null);
-            const [editFormData, setEditFormData] = useState({});
-            const [manageSearch, setManageSearch] = useState('');
-            const [isAddingNew, setIsAddingNew] = useState(false);
+            // Modal States
+            const [editModal, setEditModal] = useState({ isOpen: false, type: 'item', data: {} });
+            const [showProfile, setShowProfile] = useState(false);
+            const [showRoomMenu, setShowRoomMenu] = useState(false);
+            const [detailLocation, setDetailLocation] = useState(null);
 
-            // Inputs
+            // Auth Inputs
+            const [authMode, setAuthMode] = useState('login'); 
+            const [authInputs, setAuthInputs] = useState({ email: '', password: '', username: '' });
+            const [authError, setAuthError] = useState('');
+
+            // Home Inputs
             const [inputValue, setInputValue] = useState('');
             const [isInputFocused, setIsInputFocused] = useState(false);
             const [activeIcon, setActiveIcon] = useState('📦');
             const [showIconPicker, setShowIconPicker] = useState(false);
             const [selectedLocationId, setSelectedLocationId] = useState(null);
             const [isSubmitting, setIsSubmitting] = useState(false);
-            const [isAddingLocation, setIsAddingLocation] = useState(false);
-            const [newLocName, setNewLocName] = useState('');
-            const [newLocIcon, setNewLocIcon] = useState('📦');
-            const [showLocIconPicker, setShowLocIconPicker] = useState(false);
             const [newRoomName, setNewRoomName] = useState('');
 
-            const [config, setConfig] = useState(() => JSON.parse(localStorage.getItem('my_room_config')) || { lang: 'zh-TW', mode: 'light', color: 'blue' });
+            // Computed
             const isDark = config.mode === 'dark';
             const themeStyles = THEME_COLORS[config.color];
-            const t = TRANSLATIONS[config.lang]; 
-            const currentT = t || TRANSLATIONS['zh-TW']; 
+            const t = TRANSLATIONS[config.lang] || TRANSLATIONS['zh-TW'];
             const [randomHeadline, setRandomHeadline] = useState("");
-            const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, message: '', onConfirm: null });
 
             const greetingText = useMemo(() => {
                 const h = new Date().getHours();
-                if (h < 12) return currentT.greeting.morning;
-                if (h < 18) return currentT.greeting.afternoon;
-                return currentT.greeting.evening;
-            }, [config.lang, currentT]);
+                if (h < 12) return t.greeting.morning;
+                if (h < 18) return t.greeting.afternoon;
+                return t.greeting.evening;
+            }, [config.lang, t]);
 
-            useEffect(() => {
-                localStorage.setItem('my_room_config', JSON.stringify(config));
+            const FUN_HEADLINES = {
+                'zh-TW': ["東西又找不到了？", "又有戰利品了！", "斷捨離...失敗？", "這東西要放哪？", "房間快爆炸啦！", "記憶力救星在此。", "幫它找個家吧。", "別再亂丟了喔。"],
+                'zh-CN': ["东西又找不到了？", "又有战利品了！", "断舍离...失败？", "这东西要放哪？", "房间快爆炸啦！", "记忆力救星在此。", "帮它找个家吧。", "别再乱丢了喔。"],
+                'en': ["Lost something again?", "New loot alert!", "Decluttering failed?", "Where does this go?", "Room exploding soon!", "Memory saver here.", "Give it a home.", "Don't throw it!"]
+            };
+
+            useEffect(() => { 
+                localStorage.setItem('my_room_config', JSON.stringify(config)); 
                 const headlines = FUN_HEADLINES[config.lang] || FUN_HEADLINES['zh-TW'];
                 setRandomHeadline(headlines[Math.floor(Math.random() * headlines.length)]);
-            }, [config.lang, config.mode, config.color]);
+            }, [config]);
 
-            useEffect(() => {
-                const unsub = onAuthStateChanged(auth, (u) => { setUser(u); setAuthLoading(false); });
-                return () => unsub();
-            }, []);
-
-            useEffect(() => {
-                if (user) {
-                    const savedRoomId = localStorage.getItem(`last_room_${user.uid}`);
-                    if (savedRoomId && rooms.length > 0) {
-                        const r = rooms.find(room => room.id === savedRoomId);
-                        if (r) setCurrentRoom(r);
-                    }
-                }
-            }, [user, rooms]);
+            useEffect(() => { onAuthStateChanged(auth, (u) => { setUser(u); setAuthLoading(false); }); }, []);
 
             useEffect(() => {
                 if (!user) return;
                 const unsubs = [
-                    onSnapshot(query(collection(db, 'artifacts', appId, 'users', user.uid, 'rooms'), orderBy('createdAt', 'asc')), (s) => setRooms([{ id: 'default', name: currentT.my_room }, ...s.docs.map(d => ({ id: d.id, ...d.data() }))])),
-                    onSnapshot(query(collection(db, 'artifacts', appId, 'users', user.uid, 'locations'), orderBy('createdAt', 'asc')), (s) => setLocations(s.docs.map(d => ({ id: d.id, ...d.data() })))),
-                    onSnapshot(query(collection(db, 'artifacts', appId, 'users', user.uid, 'items'), orderBy('createdAt', 'desc')), (s) => setItems(s.docs.map(d => ({ id: d.id, ...d.data() })))),
-                    onSnapshot(query(collection(db, 'artifacts', appId, 'users', user.uid, 'logs'), orderBy('createdAt', 'desc')), (s) => setLogs(s.docs.map(d => ({ id: d.id, ...d.data() })))) 
+                    onSnapshot(query(collection(db, 'artifacts', appId, 'users', user.uid, 'rooms'), orderBy('createdAt', 'asc')), s => setRooms([{id:'default', name: t.my_room}, ...s.docs.map(d => ({id:d.id, ...d.data()}))])),
+                    onSnapshot(query(collection(db, 'artifacts', appId, 'users', user.uid, 'locations'), orderBy('createdAt', 'asc')), s => setLocations(s.docs.map(d => ({id:d.id, ...d.data()})))),
+                    onSnapshot(query(collection(db, 'artifacts', appId, 'users', user.uid, 'items'), orderBy('createdAt', 'desc')), s => setItems(s.docs.map(d => ({id:d.id, ...d.data()}))))
                 ];
                 return () => unsubs.forEach(u => u());
-            }, [user, currentT.my_room]);
+            }, [user, t.my_room]);
 
-            const currentLocations = useMemo(() => locations.filter(l => l.room === currentRoom.id || (!l.room && currentRoom.id === 'default')), [locations, currentRoom]);
-            const currentItems = useMemo(() => {
-                const locIds = new Set(currentLocations.map(l => l.id));
-                return items.filter(i => locIds.has(i.locationId));
-            }, [items, currentLocations]);
-            const filteredHomeItems = useMemo(() => inputValue ? currentItems.filter(i => i.name.toLowerCase().includes(inputValue.toLowerCase()) || (i.barcode && i.barcode.includes(inputValue))) : currentItems, [currentItems, inputValue]);
-            const isAddMode = inputValue.length > 0 && isInputFocused;
-
-            const lowStockItems = currentItems.filter(i => (parseInt(i.quantity) || 0) < 2);
-            const totalValue = currentItems.reduce((acc, curr) => acc + ((parseInt(curr.quantity)||0) * (parseFloat(curr.price)||0)), 0);
-
-            // Handlers
-            const triggerConfirm = (msg, action) => setConfirmDialog({ isOpen: true, message: msg, onConfirm: () => { action(); setConfirmDialog({ isOpen: false, message: '', onConfirm: null }); } });
-            const handleGoogleLogin = async () => { try { await signInWithPopup(auth, provider); } catch (e) { console.error(e); } };
-            const handleEmailAuth = async (e) => {
-                e.preventDefault(); setAuthError(''); setRawError(''); setShowErrorDetails(false);
+            const showToast = (msg) => setToast(msg);
+            
+            const handleSave = async (data) => {
+                const { id, ...payload } = data;
+                const type = editModal.type;
+                const colName = type === 'room' ? 'rooms' : (type === 'location' ? 'locations' : 'items');
                 try {
-                    if (isSignUp) {
-                        if (!username.trim()) { setAuthError("Need username"); return; }
-                        const res = await createUserWithEmailAndPassword(auth, email, password);
-                        await updateProfile(res.user, { displayName: username });
-                    } else { await signInWithEmailAndPassword(auth, email, password); }
-                } catch (error) { setAuthError(error.message); setRawError(error.code); }
+                    if (id) {
+                        await updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, colName, id), payload);
+                        showToast(t.toast_updated);
+                    } else {
+                        if (type === 'location') payload.room = currentRoom.id;
+                        if (type === 'item') payload.locationId = detailLocation ? detailLocation.id : (locations[0]?.id || '');
+                        await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, colName), { ...payload, createdAt: serverTimestamp() });
+                        showToast(t.toast_added);
+                    }
+                    setEditModal({ ...editModal, isOpen: false });
+                } catch (e) { console.error(e); }
             };
-            const handleLogout = () => triggerConfirm(currentT.logout + "?", () => { signOut(auth); setOnboardingStep('welcome'); setShowEmailAuth(false); setShowProfileModal(false); });
 
-            const handleAddItem = async () => {
-                if (!inputValue.trim() || !selectedLocationId) return;
-                setIsSubmitting(true);
-                await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'items'), { 
-                    name: inputValue, locationId: selectedLocationId, icon: activeIcon, 
-                    quantity: 1, price: 0, createdAt: serverTimestamp() 
-                });
-                await addLog(user.uid, 'ADD', inputValue, `Added to ${locations.find(l=>l.id===selectedLocationId)?.name}`);
-                setInputValue(''); setIsSubmitting(false);
+            const handleDelete = async (id) => {
+                const type = editModal.type;
+                const colName = type === 'room' ? 'rooms' : (type === 'location' ? 'locations' : 'items');
+                if (confirm(type === 'room' ? t.delete_room_confirm : t.confirm_delete)) {
+                    await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, colName, id));
+                    setEditModal({ ...editModal, isOpen: false });
+                    if(type === 'location') setDetailLocation(null); 
+                    showToast(t.toast_deleted);
+                }
             };
 
             const handleUpdateQty = async (item, delta) => {
@@ -499,198 +484,122 @@
                 try { await updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'items', item.id), { quantity: newQty }); } catch(e) { console.error(e); }
             };
 
-            const handleDeleteItem = (id, name) => triggerConfirm(currentT.confirm_delete, async () => {
-                await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'items', id));
-                await addLog(user.uid, 'DELETE', name, 'Item removed');
-            });
-            const handleAddLocation = async () => {
-                if (!newLocName.trim()) return;
-                await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'locations'), { name: newLocName, icon: newLocIcon, room: currentRoom.id, createdAt: serverTimestamp() });
-                setNewLocName(''); setIsAddingLocation(false);
+            const handleDeleteItem = async (id) => {
+                if (confirm(t.confirm_delete)) {
+                     await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'items', id));
+                     showToast(t.toast_deleted);
+                }
             };
-            const handleDeleteLocation = (id) => triggerConfirm(currentT.delete_loc_confirm, () => deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'locations', id)));
+            
             const handleAddRoom = async () => {
                 if (!newRoomName.trim()) return;
                 const res = await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'rooms'), { name: newRoomName, createdAt: serverTimestamp() });
-                setNewRoomName(''); setCurrentRoom({ id: res.id, name: newRoomName }); localStorage.setItem(`last_room_${user.uid}`, res.id); setShowRoomMenu(false);
+                setNewRoomName(''); setCurrentRoom({id: res.id, name: newRoomName}); localStorage.setItem(`last_room_${user.uid}`, res.id); setShowRoomMenu(false);
             };
 
-            const startAdd = () => { setIsAddingNew(true); setEditingId('new'); setEditFormData({ name: '', icon: '📦', quantity: 1, price: 0, room: currentRoom.id }); };
-            const saveManagementItem = async () => {
+            const handleAuth = async (e) => {
+                e.preventDefault(); setAuthError('');
                 try {
-                    const coll = manageTab;
-                    if (isAddingNew) {
-                        const { id, ...data } = editFormData;
-                        if(manageTab === 'items' && !data.locationId && locations.length) data.locationId = locations[0].id;
-                        if(manageTab === 'locations' && !data.room) data.room = currentRoom.id;
-                        await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, coll), { ...data, createdAt: serverTimestamp() });
-                        await addLog(user.uid, 'ADD', data.name, `New ${coll.slice(0,-1)} created`);
-                    } else {
-                        const { id, ...data } = editFormData;
-                        await updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, coll, id), data);
-                        await addLog(user.uid, 'UPDATE', data.name, `Updated details`);
-                    }
-                    setEditingId(null); setIsAddingNew(false); setEditFormData({});
+                    if (authMode === 'register') {
+                        const res = await createUserWithEmailAndPassword(auth, authInputs.email, authInputs.password);
+                        await updateProfile(res.user, { displayName: authInputs.username });
+                    } else { await signInWithEmailAndPassword(auth, authInputs.email, authInputs.password); }
+                } catch (err) { setAuthError(err.message); }
+            };
+            
+            const handleAddItem = async () => {
+                if (!inputValue.trim() || !selectedLocationId) return;
+                setIsSubmitting(true);
+                try {
+                    await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'items'), { 
+                        name: inputValue, locationId: selectedLocationId, icon: activeIcon, 
+                        quantity: 1, price: 0, createdAt: serverTimestamp() 
+                    });
+                    setInputValue(''); setIsSubmitting(false); showToast(t.toast_added);
                 } catch(e) { console.error(e); }
             };
-            const handleDeleteGeneric = (coll, id, name) => triggerConfirm(currentT.confirm_delete, async () => {
-                await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, coll, id));
-                await addLog(user.uid, 'DELETE', name, `Removed from ${coll}`);
-            });
+            
+            const handleGoogleLogin = async () => { try { await signInWithPopup(auth, provider); } catch (e) { console.error(e); } };
 
-            const handleScan = (code) => {
-                const foundLoc = locations.find(l => l.barcode === code);
-                if (foundLoc) { 
-                    setViewingLocation(foundLoc); 
-                    return; 
-                }
-                const foundItem = items.find(i => i.barcode === code);
-                if (foundItem) { setInputValue(foundItem.name); setActiveTab('home'); return; }
-                if (confirm(`${currentT.not_found_create} (${code})`)) {
-                    setActiveTab('management'); setManageTab('items'); startAdd(); setEditFormData(prev => ({ ...prev, barcode: code }));
-                }
-            };
+            const currentLocations = useMemo(() => locations.filter(l => l.room === currentRoom.id || (!l.room && currentRoom.id === 'default')), [locations, currentRoom]);
+            const currentItems = useMemo(() => {
+                return items; 
+            }, [items]);
+            const filteredHomeItems = useMemo(() => inputValue ? currentItems.filter(i => i.name.toLowerCase().includes(inputValue.toLowerCase())) : currentItems.slice(0, 10), [currentItems, inputValue]);
+            
+            const lowStockItems = useMemo(() => items.filter(i => (parseInt(i.quantity)||0) < 2), [items]);
+            const totalValue = items.reduce((acc, curr) => acc + ((parseInt(curr.quantity)||0) * (parseFloat(curr.price)||0)), 0);
 
-            const renderManageRows = () => {
-                let list = (manageTab === 'rooms' ? rooms.filter(r => r.id !== 'default') : (manageTab === 'locations' ? locations : items));
-                if (manageSearch) list = list.filter(d => d.name.toLowerCase().includes(manageSearch.toLowerCase()));
-                
-                const renderForm = () => (
-                    <div className="flex flex-col gap-3 p-1">
-                        <div className="flex gap-2">
-                            {manageTab !== 'rooms' && <div className="w-12 shrink-0"><GlassInput value={editFormData.icon} onChange={e => setEditFormData({...editFormData, icon: e.target.value})} isDark={isDark} className="text-center px-0 text-lg" placeholder="Icon"/></div>}
-                            <GlassInput value={editFormData.name} onChange={e => setEditFormData({...editFormData, name: e.target.value})} isDark={isDark} placeholder={currentT.name}/>
-                        </div>
-                        
-                        {manageTab === 'items' && (
-                            <div className="grid grid-cols-3 gap-2">
-                                <GlassInput type="number" value={editFormData.quantity} onChange={e => setEditFormData({...editFormData, quantity: e.target.value})} isDark={isDark} placeholder={currentT.qty}/>
-                                <GlassInput type="number" value={editFormData.price} onChange={e => setEditFormData({...editFormData, price: e.target.value})} isDark={isDark} placeholder={currentT.price}/>
-                                <GlassInput value={editFormData.expiryDate} onChange={e => setEditFormData({...editFormData, expiryDate: e.target.value})} isDark={isDark} placeholder="YYYY-MM-DD"/>
-                            </div>
-                        )}
-                        {manageTab !== 'rooms' && (
-                             <GlassInput icon={ScanLine} value={editFormData.barcode || ''} onChange={e => setEditFormData({...editFormData, barcode: e.target.value})} isDark={isDark} placeholder={currentT.barcode || "Barcode"}/>
-                        )}
+            const isAddMode = inputValue.length > 0 && isInputFocused;
 
-                        {(manageTab === 'locations' || manageTab === 'items') && (
-                            <div className="w-full">
-                                {manageTab === 'locations' && <CustomDropdown isDark={isDark} options={rooms} value={editFormData.room || 'default'} onChange={val => setEditFormData({...editFormData, room: val})} placeholder={currentT.select_room}/>}
-                                {manageTab === 'items' && <CustomDropdown isDark={isDark} options={locations} value={editFormData.locationId} onChange={val => setEditFormData({...editFormData, locationId: val})} placeholder={currentT.select_location}/>}
-                            </div>
-                        )}
-                        
-                        <div className="flex gap-3 mt-3">
-                             <button onClick={() => { setEditingId(null); setIsAddingNew(false); }} className={`flex-1 py-3 rounded-xl font-bold text-sm transition-colors ${isDark ? 'bg-white/10 text-white hover:bg-white/20' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>{currentT.cancel}</button>
-                            <button onClick={saveManagementItem} className="flex-[2] bg-blue-500 text-white rounded-xl py-3 font-bold text-sm shadow-lg hover:bg-blue-600 transition-all">{currentT.confirm}</button>
-                        </div>
-                    </div>
-                );
-
-                return (
-                    <div className="space-y-3 pb-24">
-                        {isAddingNew && <div className={`p-4 rounded-2xl border mb-4 animate-scaleIn ${isDark ? 'bg-white/10 border-blue-500/50' : 'bg-white border-blue-200 shadow-lg'}`}><div className="text-xs font-bold text-blue-500 mb-2">{currentT.add_new}</div>{renderForm()}</div>}
-                        {list.map(item => (
-                            <div key={item.id} className={`p-4 rounded-2xl border transition-all ${isDark ? 'bg-white/5 border-white/5' : 'bg-white/60 border-white/40 shadow-sm'}`}>
-                                {editingId === item.id ? renderForm() : (
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-3 overflow-hidden">
-                                            {item.icon && <span className="text-xl shrink-0">{item.icon}</span>}
-                                            <div className="min-w-0">
-                                                <div className={`font-bold text-sm truncate ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>{item.name}</div>
-                                                <div className="text-[10px] opacity-50 truncate flex gap-2">
-                                                    {manageTab === 'items' && <span>x{item.quantity || 1}</span>}
-                                                    {manageTab === 'locations' && (rooms.find(r => r.id === item.room)?.name || 'Default')}
-                                                    {manageTab === 'items' && (locations.find(l => l.id === item.locationId)?.name || 'Unknown')}
-                                                    {item.barcode && <span className="flex items-center gap-0.5"><ScanLine size={8}/>{item.barcode}</span>}
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="flex gap-2 shrink-0">
-                                            <button onClick={() => { setEditingId(item.id); setEditFormData({...item}); }} className={`p-2 rounded-xl ${isDark ? 'bg-white/10 text-gray-300' : 'bg-gray-100 text-gray-600'}`}><PenLine size={14}/></button>
-                                            <button onClick={() => handleDeleteGeneric(manageTab, item.id, item.name)} className={`p-2 rounded-xl ${isDark ? 'bg-red-500/20 text-red-400' : 'bg-red-100 text-red-500'}`}><Trash2 size={14}/></button>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        ))}
-                    </div>
-                );
-            };
-
-            // --- Main Render ---
+            // --- Render ---
             if (authLoading) return <div className="h-screen w-full bg-white flex items-center justify-center"><Sparkles className="animate-spin text-gray-400"/></div>;
 
             if (!user) {
-                // (Onboarding flow same as before, omitted for brevity, ensure you copy the onboarding part from previous response or keep it)
-                 return (
+                // Onboarding & Login
+                return (
                     <div className={`h-screen w-full flex items-center justify-center font-sans overflow-hidden relative transition-colors duration-500 ${isDark ? 'bg-black text-white' : 'bg-gray-50 text-gray-900'}`}>
-                        <AuroraBackground isDark={isDark} colorTheme={config.color} />
-                        <div className="relative z-10 p-8 w-full max-w-sm flex flex-col h-full justify-center">
-                            {onboardingStep === 'welcome' && (
-                                <div className="animate-slideUp flex flex-col items-center text-center">
+                        <div className={`absolute inset-0 bg-gradient-to-b opacity-40 ${themeStyles.from} to-black pointer-events-none`}/>
+                        <div className="relative z-10 p-8 w-full max-w-sm flex flex-col h-full justify-center animate-fadeIn">
+                             
+                             {/* STEP 1: WELCOME */}
+                             {onboardingStep === 'welcome' && (
+                                <div className="flex flex-col items-center text-center h-full justify-center">
                                     <div className="text-8xl mb-6 animate-bounce-slight">🪐</div>
-                                    <h1 className={`text-4xl font-black mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>{currentT.welcome_title}</h1>
-                                    <p className={`${isDark ? 'text-white/60' : 'text-gray-500'} mb-10 text-lg`}>{currentT.welcome_subtitle}</p>
+                                    <h1 className="text-4xl font-black mb-2">{t.welcome_title}</h1>
+                                    <p className="opacity-60 mb-10 text-lg">{t.welcome_subtitle}</p>
+                                    
                                     <div className="w-full space-y-4 mb-12">
-                                        {[{icon:<Edit3 size={20} className="text-white"/>,bg:'bg-blue-500',text:currentT.feature_1},{icon:<Search size={20} className="text-white"/>,bg:'bg-purple-500',text:currentT.feature_2},{icon:<LayoutGrid size={20} className="text-white"/>,bg:'bg-pink-500',text:currentT.feature_3}].map((f,i)=>(
-                                            <div key={i} className={`flex items-center gap-4 p-4 rounded-2xl border ${isDark?'bg-white/10 border-white/10':'bg-white/60 border-white/50 shadow-sm'}`}><div className={`p-2 rounded-lg ${f.bg}`}>{f.icon}</div><div className={`font-bold ${isDark?'text-white':'text-gray-900'}`}>{f.text}</div></div>
+                                        {[{icon:<Edit3 size={20} className="text-white"/>,bg:'bg-blue-500',text:t.feature_1},{icon:<Search size={20} className="text-white"/>,bg:'bg-purple-500',text:t.feature_2},{icon:<LayoutGrid size={20} className="text-white"/>,bg:'bg-pink-500',text:t.feature_3}].map((f,i)=>(
+                                            <div key={i} className={`flex items-center gap-4 p-4 rounded-2xl border ${isDark?'bg-white/10 border-white/10':'bg-white/60 border-white/50 shadow-sm'}`}><div className={`p-2 rounded-lg ${f.bg}`}>{f.icon}</div><div className="font-bold">{f.text}</div></div>
                                         ))}
                                     </div>
-                                    <div className="w-full mt-auto flex flex-col items-center">
-                                        <button onClick={() => setOnboardingStep('language')} className={`w-full py-4 font-bold rounded-2xl shadow-xl active:scale-95 transition-transform flex items-center justify-center gap-2 ${isDark ? 'bg-white text-black' : 'bg-black text-white'}`}>{currentT.login_btn} <ArrowRight size={20} /></button>
-                                        <button onClick={() => setOnboardingStep('login')} className={`text-xs mt-4 transition-colors border-b border-transparent pb-0.5 ${isDark ? 'text-white/40 hover:text-white hover:border-white/40' : 'text-gray-400 hover:text-gray-900 hover:border-gray-400'}`}>{currentT.login_hint}</button>
-                                    </div>
+                                    <button onClick={() => setOnboardingStep('language')} className={`w-full py-4 font-bold rounded-2xl shadow-xl active:scale-95 transition-transform flex items-center justify-center gap-2 ${isDark ? 'bg-white text-black' : 'bg-black text-white'}`}>{t.login_btn} <ArrowRight size={20}/></button>
+                                    <button onClick={() => setOnboardingStep('login')} className="text-xs mt-4 opacity-50 hover:opacity-100 transition-opacity pb-0.5 border-b border-transparent hover:border-current">{t.login_hint}</button>
                                 </div>
-                            )}
-                            {onboardingStep === 'language' && (
-                                <div className="animate-slideUp flex flex-col items-center text-center w-full">
-                                    <button onClick={() => setOnboardingStep('welcome')} className={`absolute top-8 left-6 p-2 rounded-full ${isDark ? 'bg-white/10 text-white' : 'bg-white/60 text-gray-900 shadow-sm'}`}><ArrowRight className="rotate-180" size={20}/></button>
-                                    <div className="text-6xl mb-6"><Globe size={64} className={isDark?'text-white/80':'text-gray-800/80'}/></div>
-                                    <h2 className={`text-2xl font-bold mb-8 ${isDark?'text-white':'text-gray-900'}`}>{currentT.select_lang}</h2>
+                             )}
+
+                             {/* STEP 2: LANGUAGE */}
+                             {onboardingStep === 'language' && (
+                                <div className="flex flex-col items-center text-center h-full justify-center animate-slideUp">
+                                    <button onClick={() => setOnboardingStep('welcome')} className="absolute top-8 left-6 p-2 rounded-full bg-white/10 hover:bg-white/20"><ArrowRight className="rotate-180"/></button>
+                                    <div className="text-6xl mb-6"><Globe size={64}/></div>
+                                    <h2 className="text-2xl font-bold mb-8">{t.select_lang}</h2>
                                     <div className="w-full space-y-3">
-                                        {[{code:'zh-TW',label:'繁體中文'},{code:'zh-CN',label:'简体中文'},{code:'en',label:'English'}].map(l=>(<button key={l.code} onClick={()=>{setConfig({...config,lang:l.code});setOnboardingStep('login');}} className={`w-full py-5 border font-bold rounded-2xl transition-all flex justify-between items-center px-6 ${isDark?'bg-white/10 hover:bg-white/20 border-white/10 text-white':'bg-white/60 hover:bg-white border-white/50 text-gray-900 shadow-sm'}`}><span>{l.label}</span><ChevronRight size={20} className="opacity-50"/></button>))}
+                                        {[{code:'zh-TW',label:'繁體中文'},{code:'zh-CN',label:'简体中文'},{code:'en',label:'English'}].map(l=>(
+                                            <button key={l.code} onClick={()=>{setConfig({...config,lang:l.code});setOnboardingStep('login');}} className={`w-full py-5 border font-bold rounded-2xl transition-all flex justify-between items-center px-6 ${isDark?'bg-white/10 hover:bg-white/20 border-white/10':'bg-white/60 hover:bg-white border-white/50 shadow-sm'}`}><span>{l.label}</span><ChevronRight size={20} className="opacity-50"/></button>
+                                        ))}
                                     </div>
                                 </div>
-                            )}
-                            {onboardingStep === 'login' && (
-                                <div className="animate-slideUp flex flex-col items-center text-center w-full">
-                                    <button onClick={() => setOnboardingStep('language')} className={`absolute top-8 left-6 p-2 rounded-full ${isDark ? 'bg-white/10 text-white' : 'bg-white/60 text-gray-900 shadow-sm'}`}><ArrowRight className="rotate-180" size={20}/></button>
-                                    {!showEmailAuth ? (
-                                        <React.Fragment>
-                                            <h1 className={`text-3xl font-black mb-2 ${isDark?'text-white':'text-gray-900'}`}>{currentT.login_btn}</h1>
-                                            <p className={`mb-10 ${isDark?'text-white/60':'text-gray-500'}`}>{currentT.welcome_subtitle}</p>
-                                            <button onClick={handleGoogleLogin} className={`w-full py-4 font-bold rounded-2xl shadow-xl active:scale-95 transition-transform flex items-center justify-center gap-3 mb-6 ${isDark?'bg-white text-black':'bg-white text-gray-900 border border-gray-100'}`}>
-                                                <svg className="w-6 h-6" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg> Google Login
-                                            </button>
-                                            <div className={`w-full border-t my-4 ${isDark?'border-white/10':'border-gray-200'}`}></div>
-                                            <button onClick={() => setShowEmailAuth(true)} className={`text-sm transition-colors ${isDark?'text-white/50 hover:text-white':'text-gray-400 hover:text-gray-900'}`}>{currentT.no_google}</button>
-                                        </React.Fragment>
-                                    ) : (
-                                        <div className="w-full animate-fadeIn">
-                                            <h2 className={`text-2xl font-bold mb-6 ${isDark?'text-white':'text-gray-900'}`}>{isSignUp ? currentT.register_submit : currentT.login_submit}</h2>
-                                            <form onSubmit={handleEmailAuth} className="space-y-4 w-full">
-                                                {isSignUp && (
-                                                    <GlassInput icon={User} value={username} onChange={e=>setUsername(e.target.value)} placeholder={currentT.username_ph} isDark={isDark} />
-                                                )}
-                                                <GlassInput icon={Mail} value={email} onChange={e=>setEmail(e.target.value)} placeholder={currentT.email_ph} isDark={isDark} />
-                                                <GlassInput icon={Lock} type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder={currentT.password_ph} isDark={isDark} />
-                                                
-                                                {authError && (
-                                                    <div className="bg-red-900/10 border border-red-500/50 rounded-xl p-3 mt-2 text-left">
-                                                        <div className="flex justify-between items-start gap-2"><span className="text-red-500 text-xs font-bold">{authError}</span><button type="button" onClick={()=>setShowErrorDetails(!showErrorDetails)} className="text-[10px] text-red-400 underline shrink-0">詳細</button></div>
-                                                        {showErrorDetails && <div className="mt-2 pt-2 border-t border-red-500/20 text-[10px] font-mono text-red-400 break-all">{rawError}</div>}
-                                                    </div>
-                                                )}
-                                                <button type="submit" className={`w-full py-4 font-bold rounded-2xl shadow-lg mt-4 active:scale-95 transition-transform ${isDark?'bg-white text-black':'bg-black text-white'}`}>{isSignUp ? currentT.register_submit : currentT.login_submit}</button>
-                                            </form>
-                                            <button onClick={()=>{setIsSignUp(!isSignUp);setAuthError('');}} className={`mt-6 text-sm hover:text-opacity-80 transition-colors ${isDark?'text-white/50':'text-gray-500'}`}>{isSignUp ? currentT.switch_to_login : currentT.switch_to_register}</button>
-                                        </div>
-                                    )}
+                             )}
+
+                             {/* STEP 3: LOGIN */}
+                             {onboardingStep === 'login' && (
+                                <div className="flex flex-col h-full justify-center w-full animate-slideUp">
+                                    <button onClick={() => setOnboardingStep('welcome')} className="absolute top-8 left-6 p-2 rounded-full bg-white/10 hover:bg-white/20"><ArrowRight className="rotate-180"/></button>
+                                    <div className="mb-8 text-center">
+                                        <h2 className="text-3xl font-black mb-2">{authMode === 'login' ? t.login_btn : t.register_submit}</h2>
+                                        <p className="opacity-60">{t.welcome_subtitle}</p>
+                                    </div>
+                                    
+                                    <form onSubmit={handleAuth} className="space-y-4">
+                                        {authMode === 'register' && <GlassInputInner icon={User} value={authInputs.username} onChange={e => setAuthInputs({...authInputs, username: e.target.value})} placeholder={t.username_ph} isDark={isDark}/>}
+                                        <GlassInputInner icon={Mail} value={authInputs.email} onChange={e => setAuthInputs({...authInputs, email: e.target.value})} placeholder={t.email_ph} isDark={isDark}/>
+                                        <GlassInputInner icon={Lock} type="password" value={authInputs.password} onChange={e => setAuthInputs({...authInputs, password: e.target.value})} placeholder={t.password_ph} isDark={isDark}/>
+                                        {authError && <div className="text-red-500 text-xs px-2">{authError}</div>}
+                                        <button type="submit" className={`w-full py-4 font-bold rounded-2xl shadow-xl mt-4 active:scale-95 transition-transform ${isDark?'bg-white text-black':'bg-black text-white'}`}>{authMode === 'login' ? t.login_btn : t.register_submit}</button>
+                                    </form>
+
+                                    <div className="mt-6 flex flex-col items-center gap-4">
+                                        <button onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')} className="text-sm opacity-60 hover:opacity-100 transition-opacity">{authMode === 'login' ? t.switch_to_register : t.switch_to_login}</button>
+                                        <div className="w-full border-t border-white/10"></div>
+                                        <button onClick={async () => {try{await signInWithPopup(auth,provider)}catch(e){}}} className={`w-full py-3 border rounded-xl text-sm font-bold flex items-center justify-center gap-2 ${isDark?'border-white/20 hover:bg-white/10':'border-black/10 hover:bg-black/5'}`}>
+                                            <svg className="w-5 h-5" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg> Google Login
+                                        </button>
+                                    </div>
                                 </div>
-                            )}
+                             )}
                         </div>
-                        <div className={`fixed bottom-4 right-6 text-[10px] font-mono pointer-events-none select-none opacity-20 ${isDark?'text-white':'text-black'}`}>@colasonyt1123</div>
                     </div>
                 );
             }
@@ -699,16 +608,12 @@
                 <div className={`h-screen w-full flex justify-center font-sans overflow-hidden transition-colors duration-500 ${isDark ? 'bg-black text-white' : 'bg-gray-50 text-gray-900'}`}>
                     <div className={`w-full max-w-md h-full flex flex-col relative shadow-2xl ${isDark ? 'bg-[#0a0a0a]' : 'bg-[#FAFAFA]'}`}>
                         <AuroraBackground isDark={isDark} colorTheme={config.color} />
+                        {toast && <Toast message={toast} onClose={() => setToast(null)} />}
 
-                        {/* TOP BAR */}
-                        <div className={`absolute top-0 left-0 right-0 pt-12 pb-4 px-6 flex justify-between items-center z-50 border-b transition-colors duration-300 ${isDark ? 'border-white/10' : 'border-black/5'}`}>
-                            <button onClick={()=>setShowRoomMenu(!showRoomMenu)} className={`flex items-center gap-1 font-black text-xl tracking-tighter hover:opacity-70 transition-opacity ${isDark?'text-white':'text-gray-900'}`}>{currentRoom.name} <ChevronDown size={16}/></button>
-                            <div className={`flex items-center p-1 rounded-full border shadow-sm backdrop-blur-md ${isDark ? 'bg-gray-800/50 border-white/10' : 'bg-white/60 border-white/20'}`}>
-                                {[{id:'home',icon:Home}, {id:'explore',icon:FolderOpen}, {id:'management',icon:Database}, {id:'history',icon:History}, {id:'profile',icon:Settings}].map(tb=>(
-                                    <button key={tb.id} onClick={()=>setActiveTab(tb.id)} className={`p-2.5 rounded-full relative transition-all ${activeTab===tb.id?(isDark?'bg-gray-700 text-white shadow-md':'bg-white text-gray-900 shadow-md'):(isDark?'text-gray-400 hover:text-white':'text-gray-500 hover:text-gray-900')}`}><tb.icon size={18} strokeWidth={activeTab===tb.id?2.5:2}/></button>
-                                ))}
-                            </div>
-                            <button onClick={()=>setShowProfileModal(true)} className="w-9 h-9 rounded-full bg-gradient-to-br from-gray-200 to-gray-400 p-[2px] shadow-sm"><img src={user.photoURL} className="w-full h-full rounded-full bg-white object-cover"/></button>
+                        {/* Top Bar (Unified) */}
+                        <div className={`absolute top-0 left-0 right-0 pt-12 pb-4 px-6 flex justify-between items-center z-50 transition-colors duration-300`}>
+                             <button onClick={()=>setShowRoomMenu(!showRoomMenu)} className={`flex items-center gap-1 font-black text-xl tracking-tighter hover:opacity-70 transition-opacity ${isDark?'text-white':'text-gray-900'}`}>{currentRoom.name} <ChevronDown size={16}/></button>
+                             <button onClick={() => setShowProfile(true)} className="w-10 h-10 rounded-full border-2 border-white/20 shadow-md overflow-hidden"><img src={user.photoURL} className="w-full h-full object-cover"/></button>
                         </div>
 
                         {/* Room Menu */}
@@ -724,33 +629,41 @@
                                         ))}
                                     </div>
                                     <div className={`p-2 border-t ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
-                                        <GlassInput icon={Plus} value={newRoomName} onChange={(e) => setNewRoomName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddRoom()} placeholder={currentT.add_room} isDark={isDark} className="text-xs py-1.5"/>
+                                        <GlassInput icon={Plus} value={newRoomName} onChange={(e) => setNewRoomName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddRoom()} placeholder={t.add_new} isDark={isDark} className="text-xs py-1.5"/>
                                     </div>
                                 </div>
                             </React.Fragment>
                         )}
 
-                        {/* CONTENTS */}
-                        <div className="flex-1 overflow-y-auto no-scrollbar pt-28 px-5 relative z-10">
-                            {/* HOME TAB */}
+                        {/* CONTENT AREA */}
+                        <div className="flex-1 overflow-y-auto no-scrollbar pt-28 px-5 pb-28 relative z-10">
+                            
+                            {/* HOME */}
                             {activeTab === 'home' && (
-                                <div className="space-y-6 pb-24 animate-slideUp">
-                                    {(lowStockItems.length > 0 || totalValue > 0) && (
-                                        <div className="flex gap-3 overflow-x-auto no-scrollbar mb-2">
-                                            <div className={`p-3 rounded-2xl border flex-1 min-w-[120px] ${isDark?'bg-blue-900/20 border-blue-500/30':'bg-blue-50 border-blue-100'}`}><div className="text-[10px] opacity-60 uppercase font-bold mb-1">{currentT.total_value}</div><div className="text-xl font-black">${totalValue.toLocaleString()}</div></div>
-                                            {lowStockItems.length > 0 && <div className={`p-3 rounded-2xl border flex-1 min-w-[120px] ${isDark?'bg-red-900/20 border-red-500/30':'bg-red-50 border-red-100'}`}><div className="text-[10px] opacity-60 uppercase font-bold mb-1 flex items-center gap-1 text-red-500"><AlertTriangle size={10}/> {currentT.low_stock}</div><div className="text-xl font-black text-red-500">{lowStockItems.length}</div></div>}
+                                <div className="space-y-6 animate-slideUp">
+                                    <div className="flex gap-3 overflow-x-auto no-scrollbar">
+                                        <div className={`p-4 rounded-3xl min-w-[140px] border flex-1 ${isDark ? 'bg-white/5 border-white/10' : 'bg-white/60 border-white/60 shadow-sm'}`}>
+                                            <div className="text-xs opacity-50 font-bold mb-1">{t.items_stored}</div>
+                                            <div className="text-3xl font-black">{items.length}</div>
                                         </div>
-                                    )}
+                                        {lowStockItems.length > 0 && (
+                                            <div className={`p-4 rounded-3xl min-w-[140px] border flex-1 ${isDark ? 'bg-red-500/10 border-red-500/30' : 'bg-red-50 border-red-200'}`}>
+                                                <div className="text-xs text-red-500 font-bold mb-1 flex items-center gap-1"><AlertTriangle size={12}/> {t.low_stock}</div>
+                                                <div className="text-3xl font-black text-red-500">{lowStockItems.length}</div>
+                                            </div>
+                                        )}
+                                    </div>
+                                    
                                     <div className="mb-2">
                                         <div className={`text-xs font-bold uppercase tracking-wider mb-1 flex items-center gap-1.5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}><Sparkles size={12} className={themeStyles.text} /> {greetingText}</div>
                                         <h1 className={`text-3xl font-black tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}><span className={`text-transparent bg-clip-text bg-gradient-to-r ${themeStyles.from} ${themeStyles.to}`}>{randomHeadline}</span></h1>
                                     </div>
                                     
+                                    {/* Magic Input */}
                                     <div className={`relative backdrop-blur-xl border transition-all duration-300 ease-spring ${isAddMode ? `rounded-3xl shadow-2xl ring-1 ${themeStyles.border} ${isDark ? 'bg-[#1c1c1e]/60' : 'bg-white/90'}` : `rounded-2xl shadow-sm ${isDark ? 'bg-[#1c1c1e]/60' : 'bg-white/40'}`} ${isDark ? 'border-white/20' : 'border-white/60'}`}>
                                         <div className="flex items-center p-2">
                                             <button onClick={() => setShowIconPicker(!showIconPicker)} className={`w-11 h-11 rounded-xl flex items-center justify-center text-xl transition-colors shrink-0 border ${isDark ? 'border-white/10 bg-white/5 text-white hover:bg-white/10' : 'border-white/50 bg-white/50 text-gray-900 hover:bg-white/80'}`}>{activeIcon}</button>
-                                            <input type="text" value={inputValue} onFocus={() => setIsInputFocused(true)} onChange={(e) => setInputValue(e.target.value)} placeholder={currentT.search_placeholder} className={`flex-1 bg-transparent border-none text-base font-bold px-3 focus:ring-0 ${isDark ? 'text-white placeholder-white/30' : 'text-gray-900 placeholder-gray-500'}`} />
-                                            <button onClick={() => setShowScanner(true)} className={`p-2 mr-1 rounded-full ${isDark ? 'text-white/50 hover:bg-white/10' : 'text-gray-500 hover:bg-black/5'}`}><ScanLine size={18}/></button>
+                                            <input type="text" value={inputValue} onFocus={() => setIsInputFocused(true)} onChange={(e) => setInputValue(e.target.value)} placeholder={t.search_placeholder} className={`flex-1 bg-transparent border-none text-base font-bold px-3 focus:ring-0 ${isDark ? 'text-white placeholder-white/30' : 'text-gray-900 placeholder-gray-500'}`} />
                                             {inputValue && <button onClick={() => {setInputValue(''); setIsInputFocused(false);}} className={`p-2 rounded-full ${isDark ? 'text-white/50 hover:bg-white/10' : 'text-gray-500 hover:bg-black/5'}`}><X size={14} /></button>}
                                         </div>
                                         {showIconPicker && <IconPicker selectedIcon={activeIcon} onSelect={setActiveIcon} onClose={() => setShowIconPicker(false)} isDark={isDark} />}
@@ -759,88 +672,99 @@
                                                 <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
                                                     {currentLocations.map(loc => (<button key={loc.id} onClick={() => setSelectedLocationId(loc.id)} className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border transition-all shrink-0 ${selectedLocationId === loc.id ? `${themeStyles.bg} text-white border-transparent shadow-md scale-105` : `${isDark ? 'bg-white/10 border-white/20 text-gray-300' : 'bg-white border-gray-200 text-gray-600'}`}`}><span>{loc.icon}</span><span className="font-bold text-xs">{loc.name}</span></button>))}
                                                 </div>
-                                                {selectedLocationId && <button onClick={handleAddItem} disabled={isSubmitting} className={`w-full mt-2 bg-gradient-to-r ${themeStyles.from} ${themeStyles.to} text-white font-bold py-3 rounded-xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 animate-bounce-slight`}>{isSubmitting ? <Sparkles size={16} className="animate-spin"/> : <Save size={16}/>} {currentT.save_btn}</button>}
+                                                {selectedLocationId && <button onClick={handleAddItem} disabled={isSubmitting} className={`w-full mt-2 bg-gradient-to-r ${themeStyles.from} ${themeStyles.to} text-white font-bold py-3 rounded-xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 animate-bounce-slight`}>{isSubmitting ? <Sparkles size={16} className="animate-spin"/> : <Save size={16}/>} {t.save_btn}</button>}
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="space-y-3">
-                                        {filteredHomeItems.map(item => (
-                                            <div key={item.id} className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${isDark ? 'bg-white/5 border-white/5' : 'bg-white/60 border-white/40 shadow-sm'}`}>
-                                                <div className="flex items-center gap-3"><span className="text-xl">{item.icon}</span><div><div className={`font-bold text-sm ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>{item.name}</div><div className="text-[10px] opacity-50 flex items-center gap-1"><MapPin size={10}/> {locations.find(l => l.id === item.locationId)?.name}</div></div></div>
-                                                <div className="flex items-center gap-3">
-                                                    <div className={`flex items-center gap-2 px-2 py-1 rounded-lg ${isDark?'bg-black/30':'bg-white/50'}`}><button onClick={()=>handleUpdateQty(item, -1)} className="p-1 hover:text-red-500"><Minus size={12}/></button><span className="text-xs font-bold w-4 text-center">{item.quantity||0}</span><button onClick={()=>handleUpdateQty(item, 1)} className="p-1 hover:text-green-500"><Plus size={12}/></button></div>
-                                                    <button onClick={() => handleDeleteItem(item.id, item.name)} className="opacity-30 hover:opacity-100"><Trash2 size={16}/></button>
+
+                                    {/* Items List */}
+                                    <div>
+                                        <h3 className="text-sm font-bold opacity-50 mb-3 ml-1">{t.items_stored}</h3>
+                                        <div className="space-y-2">
+                                            {filteredHomeItems.map(item => (
+                                                <div 
+                                                    key={item.id} 
+                                                    onClick={() => setEditModal({ isOpen: true, type: 'item', data: item })} // Click to Edit
+                                                    className={`flex items-center justify-between p-3 rounded-2xl border transition-all cursor-pointer active:scale-95 ${isDark ? 'bg-white/5 border-white/5 hover:bg-white/10' : 'bg-white/60 border-white/40 shadow-sm hover:bg-white/80'}`}
+                                                >
+                                                    <div className="flex items-center gap-3">
+                                                        <span className="text-xl">{item.icon}</span>
+                                                        <div><div className="font-bold text-sm">{item.name}</div><div className="text-[10px] opacity-50">{locations.find(l=>l.id===item.locationId)?.name}</div></div>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <div className={`flex items-center gap-1 px-2 py-0.5 rounded-lg ${isDark?'bg-black/30':'bg-white/50'}`}>
+                                                            <button onClick={(e)=>{e.stopPropagation(); handleUpdateQty(item, -1)}} className="p-1 hover:text-red-500"><Minus size={12}/></button>
+                                                            <span className="text-xs font-bold w-4 text-center">{item.quantity||0}</span>
+                                                            <button onClick={(e)=>{e.stopPropagation(); handleUpdateQty(item, 1)}} className="p-1 hover:text-green-500"><Plus size={12}/></button>
+                                                        </div>
+                                                        <button onClick={(e) => {e.stopPropagation(); handleDeleteItem(item.id)}} className="opacity-30 hover:opacity-100"><Trash2 size={16}/></button>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        ))}
+                                            ))}
+                                        </div>
                                     </div>
                                 </div>
                             )}
 
-                            {/* EXPLORE TAB */}
-                            {activeTab === 'explore' && (
-                                <div className="pb-24 animate-fadeIn">
+                            {/* SPACE */}
+                            {activeTab === 'space' && (
+                                <div className="space-y-4 animate-fadeIn">
+                                    <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
+                                        {rooms.map(r => (
+                                            <button key={r.id} onClick={() => setCurrentRoom(r)} className={`px-5 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all ${currentRoom.id === r.id ? (isDark ? 'bg-white text-black' : 'bg-black text-white') : (isDark ? 'bg-white/10 text-gray-400' : 'bg-gray-200 text-gray-500')}`}>{r.name}</button>
+                                        ))}
+                                        <button onClick={() => { setEditModal({ isOpen: true, type: 'room', data: {} }); }} className={`w-8 h-8 rounded-full flex items-center justify-center ${isDark?'bg-white/10':'bg-gray-200 text-gray-500'}`}><Plus size={16}/></button>
+                                    </div>
                                     <div className="grid grid-cols-2 gap-3">
                                         {currentLocations.map((loc, idx) => {
                                             const count = items.filter(i => i.locationId === loc.id).length;
                                             return (
-                                                <div key={loc.id} onClick={() => setViewingLocation(loc)} className={`cursor-pointer p-4 rounded-3xl border flex flex-col justify-between h-32 transition-all ${isDark ? 'bg-white/5 border-white/5 hover:bg-white/10' : 'bg-white/60 border-white/40 shadow-sm hover:bg-white/80'}`} style={{animationDelay: `${idx*0.05}s`}}>
-                                                    <div className="flex justify-between items-start"><span className="text-3xl">{loc.icon}</span><span className={`text-xs font-bold px-2 py-1 rounded-full ${isDark ? 'bg-white/10' : 'bg-gray-100 text-gray-500'}`}>{count}</span></div>
-                                                    <div className={`font-bold ${isDark ? 'text-white' : 'text-gray-800'}`}>{loc.name}</div>
-                                                </div>
+                                                <button key={loc.id} onClick={() => setDetailLocation(loc)} className={`relative group p-4 rounded-3xl border flex flex-col justify-between h-36 text-left transition-all active:scale-95 ${isDark ? 'bg-white/5 border-white/5 hover:bg-white/10' : 'bg-white/60 border-white/40 shadow-sm hover:bg-white/80'}`} style={{animationDelay: `${idx*0.05}s`}}>
+                                                    <div className="flex justify-between items-start"><span className="text-3xl">{loc.icon}</span><div className={`text-xs font-bold px-2 py-1 rounded-full ${isDark ? 'bg-white/10' : 'bg-gray-100 text-gray-500'}`}>{count}</div></div>
+                                                    <div><div className={`font-bold ${isDark ? 'text-white' : 'text-gray-800'}`}>{loc.name}</div></div>
+                                                    <div onClick={(e) => { e.stopPropagation(); setEditModal({ isOpen: true, type: 'location', data: loc }); }} className="absolute top-3 right-3 p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/10 dark:hover:bg-white/10"><MoreVertical size={16}/></div>
+                                                </button>
                                             )
                                         })}
-                                        <button onClick={() => { setActiveTab('management'); setManageTab('locations'); startAdd(); }} className={`rounded-3xl border border-dashed flex flex-col items-center justify-center h-32 ${isDark ? 'border-white/10 text-white/30 hover:border-white/30 hover:text-white' : 'border-gray-300 text-gray-400 hover:border-gray-400 hover:text-gray-600'}`}>
-                                            <Plus size={24}/><span className="text-xs font-bold mt-2">{currentT.add_new}</span>
-                                        </button>
                                     </div>
+                                    {currentLocations.length === 0 && <div className="text-center py-20 opacity-30">{t.empty_room}</div>}
                                 </div>
                             )}
 
-                            {/* MANAGEMENT TAB */}
-                            {activeTab === 'management' && (
-                                <div className="space-y-4 animate-fadeIn pb-24">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <div className="flex gap-2 bg-gray-500/10 p-1 rounded-xl">
-                                            {['rooms', 'locations', 'items'].map(m => (<button key={m} onClick={() => { setManageTab(m); setIsAddingNew(false); setEditingId(null); }} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${manageTab === m ? (isDark ? 'bg-white text-black' : 'bg-black text-white') : 'opacity-50'}`}>{currentT[`manage_${m}`]}</button>))}
-                                        </div>
-                                        <button onClick={startAdd} className={`p-2 rounded-xl ${isDark ? 'bg-blue-600 text-white' : 'bg-blue-500 text-white'}`}><Plus size={20}/></button>
-                                    </div>
-                                    {manageTab === 'items' && (<GlassInput icon={Search} value={manageSearch} onChange={e => setManageSearch(e.target.value)} placeholder={currentT.search} isDark={isDark} className="mb-2"/>)}
-                                    {renderManageRows()}
-                                </div>
-                            )}
-
-                            {/* HISTORY TAB */}
-                            {activeTab === 'history' && (
-                                <div className="space-y-4 animate-fadeIn pb-24">
-                                    <h2 className={`text-xl font-black ${isDark?'text-white':'text-black'}`}>Activity Log</h2>
-                                    <div className="space-y-3">
-                                        {logs.map(log => (
-                                            <div key={log.id} className={`p-3 rounded-2xl border flex items-center justify-between ${isDark ? 'bg-white/5 border-white/5' : 'bg-white/60 shadow-sm'}`}>
-                                                <div>
-                                                    <div className="flex items-center gap-2"><span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${log.action==='ADD'?'bg-green-500/20 text-green-500':(log.action==='DELETE'?'bg-red-500/20 text-red-500':'bg-blue-500/20 text-blue-500')}`}>{log.action}</span><span className={`font-bold text-sm ${isDark?'text-white':'text-gray-900'}`}>{log.itemName}</span></div>
-                                                    <div className="text-[10px] opacity-50 mt-1">{log.details}</div>
-                                                </div>
-                                                <div className="text-[10px] opacity-30">{log.createdAt?.seconds ? new Date(log.createdAt.seconds * 1000).toLocaleDateString() : 'Just now'}</div>
-                                            </div>
-                                        ))}
-                                        {logs.length === 0 && <div className="text-center opacity-50 text-sm py-10">No history yet</div>}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* PROFILE TAB */}
-                            {activeTab === 'profile' && <div className="space-y-6 animate-fadeIn pb-24"><div className={`p-6 rounded-3xl border flex items-center gap-4 ${isDark ? 'bg-white/5 border-white/5' : 'bg-white/60 border-white/40 shadow-sm'}`}><img src={user.photoURL} className="w-16 h-16 rounded-full bg-gray-200"/><div><div className={`font-black text-xl ${isDark ? 'text-white' : 'text-gray-900'}`}>{user.displayName || 'User'}</div><div className="text-xs opacity-50">{user.email}</div></div></div><div className="space-y-2"><div className="text-xs font-bold opacity-50 uppercase pl-2">{currentT.appearance}</div><div className={`p-1 rounded-2xl grid grid-cols-2 gap-1 ${isDark ? 'bg-white/5' : 'bg-gray-100'}`}><button onClick={() => setConfig({...config, mode: 'light'})} className={`py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-2 ${config.mode === 'light' ? 'bg-white shadow-sm text-black' : 'opacity-50'}`}><Sun size={14}/> Light</button><button onClick={() => setConfig({...config, mode: 'dark'})} className={`py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-2 ${config.mode === 'dark' ? 'bg-gray-700 shadow-sm text-white' : 'opacity-50'}`}><Moon size={14}/> Dark</button></div></div><div className="space-y-2"><div className="text-xs font-bold opacity-50 uppercase pl-2">{currentT.theme_color}</div><div className="flex justify-between px-2">{Object.keys(THEME_COLORS).map(key => (<button key={key} onClick={() => setConfig({...config, color: key})} className={`w-8 h-8 rounded-full flex items-center justify-center transition-transform ${THEME_COLORS[key].bg} ${config.color === key ? 'scale-110 ring-2 ring-offset-2 ' + (isDark ? 'ring-offset-black' : 'ring-offset-white') : 'opacity-50'}`}>{config.color === key && <Check size={14} className="text-white"/>}</button>))}</div></div><button onClick={handleLogout} className="w-full py-4 text-red-500 font-bold text-sm bg-red-500/10 rounded-2xl mt-4">{currentT.logout}</button></div>}
-
+                            {/* PROFILE (Just Settings & Logout now) */}
+                            {/* Profile content is now mainly in the modal triggered by avatar, 
+                                but if we still need a tab, it can be removed or kept as alternative.
+                                Based on previous request, we simplified to 2 main tabs + profile modal.
+                                But keeping it consistent with the bottom nav structure.
+                            */}
                         </div>
 
+                        {/* BOTTOM NAV */}
+                        <div className={`absolute bottom-0 left-0 right-0 px-6 pb-8 pt-4 flex justify-around items-center z-40 backdrop-blur-xl border-t transition-colors duration-300 ${isDark ? 'bg-black/80 border-white/10' : 'bg-white/80 border-black/5'}`}>
+                            {[{id:'home',icon:Home}, {id:'space',icon:FolderOpen}].map(tb => (
+                                <button key={tb.id} onClick={() => setActiveTab(tb.id)} className={`flex flex-col items-center gap-1 transition-all ${activeTab === tb.id ? (isDark ? 'text-white' : 'text-black') : 'text-gray-400 opacity-60'}`}><tb.icon size={24} strokeWidth={activeTab===tb.id?2.5:2} /></button>
+                            ))}
+                        </div>
+
+                        {/* FAB */}
+                        <FloatingActionButton onAction={(type) => setEditModal({ isOpen: true, type, data: {} })} isDark={isDark} t={t} />
+
                         {/* Modals */}
-                        <ConfirmModal isOpen={confirmDialog.isOpen} message={confirmDialog.message} onConfirm={confirmDialog.onConfirm} onCancel={() => setConfirmDialog({...confirmDialog, isOpen: false})} isDark={isDark} />
-                        {showProfileModal && <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 animate-fadeIn"><div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowProfileModal(false)} /><div className={`relative w-full max-w-xs rounded-3xl p-6 shadow-2xl animate-scaleIn border backdrop-blur-xl ${isDark ? 'bg-gray-900/90 border-gray-700 text-white' : 'bg-white/90 border-white/50 text-gray-900'}`}><div className="flex flex-col items-center gap-4"><img src={user.photoURL} className="w-20 h-20 rounded-full border-4 border-white shadow-lg"/><div className="text-center"><div className="font-black text-xl">{user.displayName || 'User'}</div><div className="text-xs opacity-50">{user.email}</div></div><button onClick={handleLogout} className="w-full py-3 bg-red-500 text-white font-bold rounded-xl text-sm shadow-lg mt-2">{currentT.logout}</button></div></div></div>}
-                        <ScannerModal isOpen={showScanner} onClose={()=>setShowScanner(false)} onScan={handleScan} isDark={isDark} t={currentT} />
-                        <LocationDetailModal location={viewingLocation} items={items} onClose={() => setViewingLocation(null)} isDark={isDark} t={currentT} />
+                        <EditModal isOpen={editModal.isOpen} type={editModal.type} data={editModal.data} onClose={() => setEditModal({...editModal, isOpen: false})} onSave={handleSave} onDelete={handleDelete} t={t} isDark={isDark} />
                         
+                        {showProfile && (
+                            <ProfileModal user={user} onClose={() => setShowProfile(false)} onLogout={() => { signOut(auth); setShowProfile(false); setOnboardingStep('welcome'); }} t={t} isDark={isDark} config={config} setConfig={setConfig} />
+                        )}
+
+                        <LocationDetailModal 
+                            location={detailLocation} 
+                            items={items} 
+                            onClose={() => setDetailLocation(null)} 
+                            onEdit={(item) => setEditModal({ isOpen: true, type: 'item', data: item })} 
+                            isDark={isDark} 
+                            t={t} 
+                        />
+
                         <div className={`absolute bottom-6 right-6 text-[10px] font-mono font-bold pointer-events-none select-none opacity-20 ${isDark ? 'text-white' : 'text-black'}`}>@colasonyt1123</div>
                     </div>
                 </div>
