@@ -48,8 +48,6 @@
         }
         .animate-blob { animation: blob 10s infinite; }
         body { -webkit-tap-highlight-color: transparent; }
-        #reader { width: 100%; border: none !important; }
-        #reader__scan_region { background: transparent; }
     </style>
 </head>
 <body class="bg-gray-50">
@@ -75,9 +73,6 @@
             getFirestore, collection, addDoc, deleteDoc, updateDoc, doc, onSnapshot, query, orderBy, serverTimestamp, where 
         } from "firebase/firestore";
 
-        // ==========================================
-        // ▼ 您的 Firebase 設定 ▼
-        // ==========================================
         const firebaseConfig = {
             apiKey: "AIzaSyA4SVxeJVjeFQZ924SGgYLFkDenj89H2wI",
             authDomain: "tuckshoprecord.firebaseapp.com",
@@ -87,13 +82,12 @@
             appId: "1:10691492783:web:5aaad9938189a2448dcd5a",
             measurementId: "G-DCG0MCG6FD"
         };
-        // ==========================================
         
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
         const provider = new GoogleAuthProvider();
-        const appId = "my-room-v10-fix2";
+        const appId = "my-room-v14-final-fix";
 
         const THEME_COLORS = {
             blue: { name: 'Ocean', from: 'from-blue-600', to: 'to-cyan-500', blob: 'bg-blue-300', text: 'text-blue-600', bg: 'bg-blue-500', border: 'border-blue-500', lightBg: 'bg-blue-50' },
@@ -129,7 +123,7 @@
                 toast_added: "已新增", toast_deleted: "已刪除", toast_updated: "已更新",
                 settings: "設定", appearance: "外觀", theme_color: "主題色", language: "語言"
             },
-             'en': {
+            'en': {
                 tab_home: "Home", tab_space: "Space", tab_profile: "Settings",
                 welcome: "Welcome back", greeting: { morning: "Good Morning", afternoon: "Good Afternoon", evening: "Good Evening" },
                 search_placeholder: "Search items...",
@@ -181,7 +175,6 @@
             }
         };
 
-        // --- Components ---
         const Toast = ({ message, type, onClose }) => {
             useEffect(() => { const t = setTimeout(onClose, 2000); return () => clearTimeout(t); }, []);
             return (
@@ -238,13 +231,41 @@
             </div>
         );
 
-        const EditModal = ({ isOpen, type, data, onClose, onSave, onDelete, t, isDark }) => {
-            if (!isOpen) return null;
-            const [formData, setFormData] = useState({ name: '', icon: '📦', quantity: 1, price: '', expiryDate: '', ...data });
+        const CustomDropdown = ({ options, value, onChange, placeholder, isDark }) => {
+            const [isOpen, setIsOpen] = useState(false);
+            const selected = options.find(o => o.id === value);
             return (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 animate-fadeIn">
+                <div className="relative w-full">
+                    <button onClick={() => setIsOpen(!isOpen)} className={`w-full flex items-center justify-between px-3 py-3.5 rounded-2xl border transition-all ${isDark ? 'bg-[#1c1c1e]/60 border-white/20 text-white hover:bg-[#1c1c1e]/90' : 'bg-white/50 border-white/60 text-gray-800 hover:bg-white/90 shadow-sm'}`}>
+                        <span className="truncate text-sm font-bold">{selected ? selected.name : placeholder}</span><ChevronDown size={14} className="opacity-50"/>
+                    </button>
+                    {isOpen && (
+                        <React.Fragment>
+                            <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)}/>
+                            <div className={`absolute top-full mt-1 left-0 w-full z-50 rounded-2xl shadow-xl border overflow-hidden max-h-48 overflow-y-auto no-scrollbar animate-slideDown backdrop-blur-xl ${isDark ? 'bg-gray-900/95 border-gray-700' : 'bg-white/95 border-white/50'}`}>
+                                {options.map(opt => (
+                                    <button key={opt.id} onClick={() => { onChange(opt.id); setIsOpen(false); }} className={`w-full text-left px-3 py-3 text-sm font-bold border-b last:border-0 transition-colors ${isDark ? 'border-white/5 hover:bg-white/10 text-gray-300' : 'border-gray-100 hover:bg-gray-50 text-gray-600'} ${value === opt.id ? (isDark ? 'bg-white/20 text-white' : 'bg-blue-50 text-blue-600') : ''}`}>
+                                        {opt.name}
+                                    </button>
+                                ))}
+                            </div>
+                        </React.Fragment>
+                    )}
+                </div>
+            );
+        };
+
+        const EditModal = ({ isOpen, type, data, onClose, onSave, onDelete, t, isDark, locations, rooms }) => {
+            if (!isOpen) return null;
+            const [formData, setFormData] = useState({ name: '', icon: '📦', quantity: 1, price: '', expiryDate: '', locationId: '', room: '', ...data });
+            
+            const safeLocations = locations || [];
+            const safeRooms = rooms || [];
+
+            return (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-fadeIn"> 
                     <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-                    <div className={`relative w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-scaleIn border backdrop-blur-xl ${isDark ? 'bg-[#1c1c1e]/95 border-white/10 text-white' : 'bg-white/95 border-white/50 text-gray-900'}`}>
+                    <div className={`relative w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-scaleIn border backdrop-blur-xl ${isDark ? 'bg-[#1c1c1e]/95 border-white/10 text-white' : 'bg-white/95 border-white/50 text-gray-900'}`}> 
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="text-xl font-black">{data.id ? t.edit : t.add_new} {t[`fab_${type}`]}</h3>
                             <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-500/10"><X size={20}/></button>
@@ -254,6 +275,15 @@
                                 <div className="w-16"><GlassInput value={formData.icon} onChange={e => setFormData({...formData, icon: e.target.value})} isDark={isDark} className="text-center text-2xl" placeholder="Icon"/></div>
                                 <GlassInput value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} isDark={isDark} placeholder={t.name} className="flex-1"/>
                             </div>
+                            
+                            {/* Dropdowns for moving items/locations */}
+                            {type === 'item' && (
+                                <CustomDropdown isDark={isDark} options={safeLocations} value={formData.locationId} onChange={val => setFormData({...formData, locationId: val})} placeholder={t.select_location}/>
+                            )}
+                            {type === 'location' && (
+                                <CustomDropdown isDark={isDark} options={safeRooms} value={formData.room} onChange={val => setFormData({...formData, room: val})} placeholder={t.select_room}/>
+                            )}
+
                             {type === 'item' && (
                                 <div className="grid grid-cols-2 gap-3">
                                     <GlassInput type="number" icon={Box} value={formData.quantity} onChange={e => setFormData({...formData, quantity: e.target.value})} isDark={isDark} placeholder={t.qty} />
@@ -355,6 +385,7 @@
 
         const IconPicker = ({ selectedIcon, onSelect, onClose, isDark }) => {
             const [activeCategory, setActiveCategory] = useState("常用");
+            const EMOJI_CATEGORIES = { "常用": ["📦", "🧥", "✏️", "🗄️"], "家具": ["🛏️", "🛋️", "🪑"], "3C": ["💻", "📱", "📷"], "食物": ["🍎", "☕", "🍷"] };
             return (
                 <div className={`absolute top-full left-0 mt-2 z-50 w-full backdrop-blur-xl border shadow-xl rounded-2xl overflow-hidden animate-slideDown origin-top ${isDark ? 'bg-gray-800/95 border-gray-700' : 'bg-white/95 border-gray-200'}`}>
                     <div className={`flex overflow-x-auto px-4 py-2 gap-2 no-scrollbar border-b ${isDark ? 'border-gray-700' : 'border-gray-100'}`}>
@@ -389,6 +420,7 @@
             const [items, setItems] = useState([]);
             const [locations, setLocations] = useState([]);
             const [rooms, setRooms] = useState([]);
+            // Consolidate room state: use currentRoom object as source of truth
             const [currentRoom, setCurrentRoom] = useState({ id: 'default', name: 'My Room' });
 
             // Modal States
@@ -417,6 +449,15 @@
             const t = TRANSLATIONS[config.lang] || TRANSLATIONS['zh-TW'];
             const [randomHeadline, setRandomHeadline] = useState("");
 
+            // Define calculated values BEFORE they are used in handlers
+            const currentLocations = useMemo(() => locations.filter(l => l.room === currentRoom.id || (!l.room && currentRoom.id === 'default')), [locations, currentRoom]);
+            const currentItems = useMemo(() => items, [items]);
+            const filteredHomeItems = useMemo(() => inputValue ? currentItems.filter(i => i.name.toLowerCase().includes(inputValue.toLowerCase())) : currentItems.slice(0, 10), [currentItems, inputValue]);
+            const lowStockItems = useMemo(() => items.filter(i => (parseInt(i.quantity)||0) < 2), [items]);
+            const totalValue = items.reduce((acc, curr) => acc + ((parseInt(curr.quantity)||0) * (parseFloat(curr.price)||0)), 0);
+            const isAddMode = inputValue.length > 0 && isInputFocused;
+            const currentRoomName = useMemo(() => { const r = rooms.find(r => r.id === currentRoom.id); return r ? r.name : t.my_room; }, [rooms, currentRoom, t.my_room]);
+
             const greetingText = useMemo(() => {
                 const h = new Date().getHours();
                 if (h < 12) return t.greeting.morning;
@@ -437,6 +478,16 @@
             }, [config]);
 
             useEffect(() => { onAuthStateChanged(auth, (u) => { setUser(u); setAuthLoading(false); }); }, []);
+
+            useEffect(() => {
+                if (user) {
+                    const savedRoomId = localStorage.getItem(`last_room_${user.uid}`);
+                    if (savedRoomId && rooms.length > 0) {
+                        const r = rooms.find(room => room.id === savedRoomId);
+                        if (r) setCurrentRoom(r);
+                    }
+                }
+            }, [user, rooms]);
 
             useEffect(() => {
                 if (!user) return;
@@ -460,7 +511,11 @@
                         showToast(t.toast_updated);
                     } else {
                         if (type === 'location') payload.room = currentRoom.id;
-                        if (type === 'item') payload.locationId = detailLocation ? detailLocation.id : (locations[0]?.id || '');
+                        // Default location fallback
+                        if (type === 'item' && !payload.locationId) {
+                             const defaultLoc = detailLocation ? detailLocation.id : (locations[0]?.id || '');
+                             payload.locationId = defaultLoc;
+                        }
                         await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, colName), { ...payload, createdAt: serverTimestamp() });
                         showToast(t.toast_added);
                     }
@@ -471,7 +526,7 @@
             const handleDelete = async (id) => {
                 const type = editModal.type;
                 const colName = type === 'room' ? 'rooms' : (type === 'location' ? 'locations' : 'items');
-                if (confirm(type === 'room' ? t.delete_room_confirm : t.confirm_delete)) {
+                if (confirm(t.confirm_delete)) {
                     await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, colName, id));
                     setEditModal({ ...editModal, isOpen: false });
                     if(type === 'location') setDetailLocation(null); 
@@ -520,17 +575,6 @@
             };
             
             const handleGoogleLogin = async () => { try { await signInWithPopup(auth, provider); } catch (e) { console.error(e); } };
-
-            const currentLocations = useMemo(() => locations.filter(l => l.room === currentRoom.id || (!l.room && currentRoom.id === 'default')), [locations, currentRoom]);
-            const currentItems = useMemo(() => {
-                return items; 
-            }, [items]);
-            const filteredHomeItems = useMemo(() => inputValue ? currentItems.filter(i => i.name.toLowerCase().includes(inputValue.toLowerCase())) : currentItems.slice(0, 10), [currentItems, inputValue]);
-            
-            const lowStockItems = useMemo(() => items.filter(i => (parseInt(i.quantity)||0) < 2), [items]);
-            const totalValue = items.reduce((acc, curr) => acc + ((parseInt(curr.quantity)||0) * (parseFloat(curr.price)||0)), 0);
-
-            const isAddMode = inputValue.length > 0 && isInputFocused;
 
             // --- Render ---
             if (authLoading) return <div className="h-screen w-full bg-white flex items-center justify-center"><Sparkles className="animate-spin text-gray-400"/></div>;
@@ -612,7 +656,7 @@
 
                         {/* Top Bar (Unified) */}
                         <div className={`absolute top-0 left-0 right-0 pt-12 pb-4 px-6 flex justify-between items-center z-50 transition-colors duration-300`}>
-                             <button onClick={()=>setShowRoomMenu(!showRoomMenu)} className={`flex items-center gap-1 font-black text-xl tracking-tighter hover:opacity-70 transition-opacity ${isDark?'text-white':'text-gray-900'}`}>{currentRoom.name} <ChevronDown size={16}/></button>
+                             <button onClick={()=>setShowRoomMenu(!showRoomMenu)} className={`flex items-center gap-1 font-black text-xl tracking-tighter hover:opacity-70 transition-opacity ${isDark?'text-white':'text-gray-900'}`}>{currentRoomName} <ChevronDown size={16}/></button>
                              <button onClick={() => setShowProfile(true)} className="w-10 h-10 rounded-full border-2 border-white/20 shadow-md overflow-hidden"><img src={user.photoURL} className="w-full h-full object-cover"/></button>
                         </div>
 
@@ -750,7 +794,7 @@
                         <FloatingActionButton onAction={(type) => setEditModal({ isOpen: true, type, data: {} })} isDark={isDark} t={t} />
 
                         {/* Modals */}
-                        <EditModal isOpen={editModal.isOpen} type={editModal.type} data={editModal.data} onClose={() => setEditModal({...editModal, isOpen: false})} onSave={handleSave} onDelete={handleDelete} t={t} isDark={isDark} />
+                        <EditModal isOpen={editModal.isOpen} type={editModal.type} data={editModal.data} onClose={() => setEditModal({...editModal, isOpen: false})} onSave={handleSave} onDelete={handleDelete} t={t} isDark={isDark} locations={locations} rooms={rooms} />
                         
                         {showProfile && (
                             <ProfileModal user={user} onClose={() => setShowProfile(false)} onLogout={() => { signOut(auth); setShowProfile(false); setOnboardingStep('welcome'); }} t={t} isDark={isDark} config={config} setConfig={setConfig} />
