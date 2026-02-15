@@ -2,8 +2,8 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>My Room App</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>MyStorage</title>
     
     <!-- 1. Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -15,6 +15,7 @@
             "react": "https://esm.sh/react@18.2.0",
             "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
             "lucide-react": "https://esm.sh/lucide-react@0.292.0",
+            "react-qr-code": "https://esm.sh/react-qr-code@2.0.12",
             "firebase/app": "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js",
             "firebase/auth": "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js",
             "firebase/firestore": "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js",
@@ -27,26 +28,37 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <style>
+        html, body, #root { height: 100%; width: 100%; overflow: hidden; margin: 0; padding: 0; position: fixed; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
         .animate-slideDown { animation: slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         @keyframes slideDown { from { opacity: 0; transform: scaleY(0.9) translateY(-10px); } to { opacity: 1; transform: scaleY(1) translateY(0); } }
+
         .animate-slideUp { animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        .animate-fadeIn { animation: fadeIn 0.3s ease-out forwards; }
+        
+        .animate-fadeIn { animation: fadeIn 0.4s ease-out forwards; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
         .animate-bounce-slight { animation: bounceSlight 0.3s infinite alternate; }
         @keyframes bounceSlight { from { transform: translateY(0); } to { transform: translateY(-2px); } }
+        
         .animate-scaleIn { animation: scaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         @keyframes scaleIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+
         .ease-spring { transition-timing-function: cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+
         @keyframes blob {
             0% { transform: translate(0px, 0px) scale(1); }
             33% { transform: translate(30px, -50px) scale(1.1); }
             66% { transform: translate(-20px, 20px) scale(0.9); }
             100% { transform: translate(0px, 0px) scale(1); }
         }
-        .animate-blob { animation: blob 10s infinite; }
+        .animate-blob { animation: blob 15s infinite; }
+        .animation-delay-2000 { animation-delay: 2s; }
+        .animation-delay-4000 { animation-delay: 4s; }
+        
         body { -webkit-tap-highlight-color: transparent; }
     </style>
 </head>
@@ -57,12 +69,13 @@
         import React, { useState, useEffect, useMemo, useRef } from 'react';
         import { createRoot } from 'react-dom/client';
         import { 
-            Search, Plus, MapPin, Trash2, Save, X, Zap, Box, Settings, 
+            Search, Plus, MapPin, Trash2, Save, X, Box, Settings, 
             LogOut, Sparkles, Moon, Sun, Check, Home, FolderOpen, User, 
             ChevronRight, Edit3, ArrowRight, Globe, LayoutGrid, Mail, Lock, 
-            AlertTriangle, ChevronDown, Package, Layers, PlusCircle, MoreVertical,
-            ScanLine, Minus, History, Calendar
+            AlertTriangle, ChevronDown, Package, Hash, Tag, Layers, MoreVertical, Minus,
+            ArrowUpRight, CornerRightDown, QrCode, Calendar, List, Grid3X3, ScanLine, Clock
         } from 'lucide-react';
+        import QRCode from "react-qr-code";
         
         import { initializeApp } from "firebase/app";
         import { 
@@ -73,6 +86,9 @@
             getFirestore, collection, addDoc, deleteDoc, updateDoc, doc, onSnapshot, query, orderBy, serverTimestamp, where 
         } from "firebase/firestore";
 
+        // ==========================================
+        // ▼ 您的 Firebase 設定 ▼
+        // ==========================================
         const firebaseConfig = {
             apiKey: "AIzaSyA4SVxeJVjeFQZ924SGgYLFkDenj89H2wI",
             authDomain: "tuckshoprecord.firebaseapp.com",
@@ -82,12 +98,13 @@
             appId: "1:10691492783:web:5aaad9938189a2448dcd5a",
             measurementId: "G-DCG0MCG6FD"
         };
+        // ==========================================
         
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
         const provider = new GoogleAuthProvider();
-        const appId = "my-room-v14-final-fix";
+        const appId = "my-room-v23-fixed";
 
         const THEME_COLORS = {
             blue: { name: 'Ocean', from: 'from-blue-600', to: 'to-cyan-500', blob: 'bg-blue-300', text: 'text-blue-600', bg: 'bg-blue-500', border: 'border-blue-500', lightBg: 'bg-blue-50' },
@@ -99,82 +116,89 @@
 
         const TRANSLATIONS = {
             'zh-TW': {
-                tab_home: "首頁", tab_space: "空間", tab_profile: "設定",
+                tab_home: "首頁", tab_space: "倉庫", tab_profile: "設定",
                 welcome: "歡迎回到", greeting: { morning: "早安", afternoon: "午安", evening: "晚安" },
-                search_placeholder: "搜尋物品...",
+                search_placeholder: "搜尋物品、標籤 (如 #螺絲)...",
                 save_btn: "入庫", login_btn: "會員登入", logout: "登出帳號",
-                confirm_delete: "確定移除？", delete_room_confirm: "刪除房間會連同清空內容，確定？",
+                confirm_delete: "確定移除？", delete_room_confirm: "刪除區域會連同清空內容，確定？",
                 add_new: "新增", search: "搜尋...", name: "名稱", icon: "圖標",
-                my_room: "我的房間", cancel: "取消", confirm: "確定",
-                select_room: "選擇房間", select_location: "選擇位置",
-                welcome_title: "My Room", welcome_subtitle: "你的個人物品宇宙",
-                feature_1: "隨手記錄", feature_2: "輕鬆搜尋", feature_3: "空間管理",
+                my_room: "我的區域", cancel: "取消", confirm: "確定",
+                select_room: "選擇區域", select_location: "選擇容器",
+                welcome_title: "MyStorage", welcome_subtitle: "您的個人物品索引系統",
+                feature_1: "極速搜尋", feature_2: "視覺索引", feature_3: "空間管理",
                 login_hint: "如果您已是用戶，請按此登入",
                 no_google: "使用電郵登入",
                 email_ph: "電子郵件", password_ph: "密碼", username_ph: "用戶名",
                 login_submit: "登入", register_submit: "註冊",
                 select_lang: "選擇語言",
                 switch_to_register: "還沒有帳號？去註冊", switch_to_login: "已有帳號？去登入",
-                qty: "數量", price: "價格", expiry: "到期日",
+                qty: "數量", price: "價格", expiry: "到期日", entry_date: "入庫日", tags: "標籤 (空格分隔)",
                 low_stock: "補貨清單", expiring: "即將過期", total_value: "總資產",
                 items_stored: "件物品", empty_room: "這裡空空的", 
-                fab_item: "物品", fab_location: "位置", fab_room: "房間",
+                fab_item: "物品", fab_location: "容器", fab_room: "區域",
                 edit: "編輯", delete: "刪除",
-                toast_added: "已新增", toast_deleted: "已刪除", toast_updated: "已更新",
-                settings: "設定", appearance: "外觀", theme_color: "主題色", language: "語言"
-            },
-            'en': {
-                tab_home: "Home", tab_space: "Space", tab_profile: "Settings",
-                welcome: "Welcome back", greeting: { morning: "Good Morning", afternoon: "Good Afternoon", evening: "Good Evening" },
-                search_placeholder: "Search items...",
-                save_btn: "Save", login_btn: "Login", logout: "Log Out",
-                confirm_delete: "Delete item?", delete_room_confirm: "Delete room and all contents?",
-                add_new: "Add", search: "Search...", name: "Name", icon: "Icon",
-                my_room: "My Room", cancel: "Cancel", confirm: "Confirm",
-                select_room: "Select Room", select_location: "Select Location",
-                welcome_title: "My Room", welcome_subtitle: "Your personal inventory universe",
-                feature_1: "Track Items", feature_2: "Easy Search", feature_3: "Manage Spaces",
-                login_hint: "Already a user? Login here",
-                no_google: "Email Login",
-                email_ph: "Email", password_ph: "Password", username_ph: "Username",
-                login_submit: "Login", register_submit: "Register",
-                select_lang: "Select Language",
-                switch_to_register: "Need account? Register", switch_to_login: "Have account? Login",
-                qty: "Qty", price: "Price", expiry: "Expiry",
-                low_stock: "Low Stock", expiring: "Expiring", total_value: "Total Value",
-                items_stored: "items", empty_room: "Nothing here", 
-                fab_item: "Item", fab_location: "Location", fab_room: "Room",
-                edit: "Edit", delete: "Delete",
-                toast_added: "Added", toast_deleted: "Deleted", toast_updated: "Updated",
-                settings: "Settings", appearance: "Appearance", theme_color: "Theme Color", language: "Language"
+                taken_out: "使用中", take_out: "取出", put_back: "放回",
+                toast_added: "已入庫", toast_deleted: "已刪除", toast_updated: "已更新",
+                settings: "設定", appearance: "外觀", theme_color: "主題色", language: "語言",
+                qr_code: "容器 QR Code", print_hint: "列印並貼在容器外"
             },
             'zh-CN': {
-                tab_home: "首页", tab_space: "空间", tab_profile: "设置",
+                tab_home: "首页", tab_space: "仓库", tab_profile: "设置",
                 welcome: "欢迎回到", greeting: { morning: "早上好", afternoon: "下午好", evening: "晚上好" },
-                search_placeholder: "搜索物品...",
+                search_placeholder: "搜索物品、标签...",
                 save_btn: "入库", login_btn: "会员登录", logout: "退出账号",
-                confirm_delete: "确定移除？", delete_room_confirm: "删除房间会连同清空内容，确定？",
+                confirm_delete: "确定移除？", delete_room_confirm: "删除区域会连同清空内容，确定？",
                 add_new: "新增", search: "搜索...", name: "名称", icon: "图标",
-                my_room: "我的房间", cancel: "取消", confirm: "确定",
-                select_room: "选择房间", select_location: "选择位置",
-                welcome_title: "My Room", welcome_subtitle: "你的个人物品宇宙",
-                feature_1: "随手记录", feature_2: "轻松搜索", feature_3: "空间管理",
+                my_room: "我的区域", cancel: "取消", confirm: "确定",
+                select_room: "选择区域", select_location: "选择容器",
+                welcome_title: "MyStorage", welcome_subtitle: "您的个人物品索引系统",
+                feature_1: "极速搜索", feature_2: "视觉索引", feature_3: "空间管理",
                 login_hint: "如果您已是用户，请按此登录",
                 no_google: "使用电邮登录",
                 email_ph: "电子邮箱", password_ph: "密码", username_ph: "用户名",
                 login_submit: "登录", register_submit: "注册",
                 select_lang: "选择语言",
                 switch_to_register: "还没有账号？去注册", switch_to_login: "已有账号？去登录",
-                qty: "数量", price: "价格", expiry: "到期日",
+                qty: "数量", price: "价格", expiry: "到期日", entry_date: "入库日", tags: "标签 (空格分隔)",
                 low_stock: "补货清单", expiring: "即将过期", total_value: "总资产",
                 items_stored: "件物品", empty_room: "这里空空的", 
-                fab_item: "物品", fab_location: "位置", fab_room: "房间",
+                fab_item: "物品", fab_location: "容器", fab_room: "区域",
                 edit: "编辑", delete: "删除",
-                toast_added: "已新增", toast_deleted: "已删除", toast_updated: "已更新",
-                settings: "设置", appearance: "外观", theme_color: "主题色", language: "语言"
+                taken_out: "使用中", take_out: "取出", put_back: "放回",
+                toast_added: "已入库", toast_deleted: "已删除", toast_updated: "已更新",
+                settings: "设置", appearance: "外观", theme_color: "主题色", language: "语言",
+                qr_code: "容器 QR Code", print_hint: "打印并贴在容器外"
+            },
+            'en': {
+                tab_home: "Home", tab_space: "Storage", tab_profile: "Settings",
+                welcome: "Welcome back", greeting: { morning: "Good Morning", afternoon: "Good Afternoon", evening: "Good Evening" },
+                search_placeholder: "Search items, tags...",
+                save_btn: "Save", login_btn: "Login", logout: "Log Out",
+                confirm_delete: "Delete item?", delete_room_confirm: "Delete zone and all contents?",
+                add_new: "Add", search: "Search...", name: "Name", icon: "Icon",
+                my_room: "My Zone", cancel: "Cancel", confirm: "Confirm",
+                select_room: "Select Zone", select_location: "Select Container",
+                welcome_title: "MyStorage", welcome_subtitle: "Your Personal Inventory System",
+                feature_1: "Smart Search", feature_2: "Visual Index", feature_3: "Space Mgmt",
+                login_hint: "Already a user? Login here",
+                no_google: "Email Login",
+                email_ph: "Email", password_ph: "Password", username_ph: "Username",
+                login_submit: "Login", register_submit: "Register",
+                select_lang: "Select Language",
+                switch_to_register: "Need account? Register", switch_to_login: "Have account? Login",
+                qty: "Qty", price: "Price", expiry: "Expiry", entry_date: "Entry Date", tags: "Tags (space separated)",
+                low_stock: "Low Stock", expiring: "Expiring", total_value: "Total Value",
+                items_stored: "items", empty_room: "Nothing here", 
+                fab_item: "Item", fab_location: "Container", fab_room: "Room",
+                edit: "Edit", delete: "Delete",
+                taken_out: "In Use", take_out: "Take Out", put_back: "Put Back",
+                toast_added: "Added", toast_deleted: "Deleted", toast_updated: "Updated",
+                settings: "Settings", appearance: "Appearance", theme_color: "Theme Color", language: "Language",
+                qr_code: "Container QR", print_hint: "Print and stick on container"
             }
         };
 
+        // --- Components ---
         const Toast = ({ message, type, onClose }) => {
             useEffect(() => { const t = setTimeout(onClose, 2000); return () => clearTimeout(t); }, []);
             return (
@@ -187,7 +211,7 @@
         const FloatingActionButton = ({ onAction, isDark, t }) => {
             const [isOpen, setIsOpen] = useState(false);
             return (
-                <div className="absolute bottom-6 right-6 z-50 flex flex-col items-end gap-3">
+                <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
                     {isOpen && (
                         <div className="flex flex-col items-end gap-3 animate-slideUp">
                             <button onClick={() => { onAction('room'); setIsOpen(false); }} className={`flex items-center gap-3 px-4 py-2 rounded-full shadow-lg font-bold text-sm ${isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-800'}`}>
@@ -257,8 +281,33 @@
 
         const EditModal = ({ isOpen, type, data, onClose, onSave, onDelete, t, isDark, locations, rooms }) => {
             if (!isOpen) return null;
-            const [formData, setFormData] = useState({ name: '', icon: '📦', quantity: 1, price: '', expiryDate: '', locationId: '', room: '', ...data });
+            const [formData, setFormData] = useState({ 
+                name: '', 
+                icon: '📦', 
+                quantity: 1, 
+                price: '', 
+                expiryDate: '', 
+                entryDate: new Date().toISOString().split('T')[0], // Default to today
+                tags: '', 
+                locationId: '', 
+                room: '', 
+                ...data 
+            });
             
+            useEffect(() => {
+                if (Array.isArray(data.tags)) {
+                    setFormData(prev => ({ ...prev, tags: data.tags.join(' ') }));
+                }
+            }, [data]);
+
+            const handleSave = () => {
+                const payload = { ...formData };
+                if (type === 'item' && typeof payload.tags === 'string') {
+                    payload.tags = payload.tags.split(' ').filter(t => t.trim() !== '');
+                }
+                onSave(payload);
+            };
+
             const safeLocations = locations || [];
             const safeRooms = rooms || [];
 
@@ -276,7 +325,6 @@
                                 <GlassInput value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} isDark={isDark} placeholder={t.name} className="flex-1"/>
                             </div>
                             
-                            {/* Dropdowns for moving items/locations */}
                             {type === 'item' && (
                                 <CustomDropdown isDark={isDark} options={safeLocations} value={formData.locationId} onChange={val => setFormData({...formData, locationId: val})} placeholder={t.select_location}/>
                             )}
@@ -285,13 +333,23 @@
                             )}
 
                             {type === 'item' && (
-                                <div className="grid grid-cols-2 gap-3">
-                                    <GlassInput type="number" icon={Box} value={formData.quantity} onChange={e => setFormData({...formData, quantity: e.target.value})} isDark={isDark} placeholder={t.qty} />
-                                    <GlassInput type="number" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} isDark={isDark} placeholder={t.price} />
-                                    <div className="col-span-2"><GlassInput type="date" icon={Calendar} value={formData.expiryDate} onChange={e => setFormData({...formData, expiryDate: e.target.value})} isDark={isDark} /></div>
-                                </div>
+                                <React.Fragment>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <GlassInput type="number" icon={Box} value={formData.quantity} onChange={e => setFormData({...formData, quantity: e.target.value})} isDark={isDark} placeholder={t.qty} />
+                                        <GlassInput icon={Hash} value={formData.tags} onChange={e => setFormData({...formData, tags: e.target.value})} isDark={isDark} placeholder={t.tags || "Tags"} />
+                                        
+                                        <div className="col-span-1">
+                                            <label className={`text-xs ml-2 font-bold mb-1 block opacity-50`}>{t.entry_date}</label>
+                                            <GlassInput type="date" icon={Calendar} value={formData.entryDate} onChange={e => setFormData({...formData, entryDate: e.target.value})} isDark={isDark} />
+                                        </div>
+                                        <div className="col-span-1">
+                                            <label className={`text-xs ml-2 font-bold mb-1 block opacity-50`}>{t.expiry}</label>
+                                            <GlassInput type="date" icon={AlertTriangle} value={formData.expiryDate} onChange={e => setFormData({...formData, expiryDate: e.target.value})} isDark={isDark} />
+                                        </div>
+                                    </div>
+                                </React.Fragment>
                             )}
-                            <button onClick={() => onSave(formData)} className={`w-full py-4 rounded-2xl font-bold text-lg shadow-lg active:scale-95 transition-all ${isDark ? 'bg-white text-black' : 'bg-black text-white'}`}>{t.confirm}</button>
+                            <button onClick={handleSave} className={`w-full py-4 rounded-2xl font-bold text-lg shadow-lg active:scale-95 transition-all ${isDark ? 'bg-white text-black' : 'bg-black text-white'}`}>{t.confirm}</button>
                             {data.id && <button onClick={() => onDelete(data.id)} className="w-full py-3 text-red-500 font-bold text-sm hover:bg-red-500/10 rounded-xl transition-colors">{t.delete}</button>}
                         </div>
                     </div>
@@ -299,32 +357,93 @@
             );
         };
 
-        const LocationDetailModal = ({ location, items, onClose, onEdit, isDark, t }) => {
+        const ItemCard = ({ item, locations, isDark, t, onEdit, onUpdateQty, onToggleTakeOut }) => {
+            return (
+                <div 
+                    onClick={() => onEdit(item)} 
+                    className={`flex items-center justify-between p-3 rounded-2xl border transition-all cursor-pointer active:scale-95 ${isDark ? 'bg-white/5 border-white/5 hover:bg-white/10' : 'bg-white/60 border-white/40 shadow-sm hover:bg-white/80'} ${item.isTakenOut ? 'opacity-60 grayscale' : ''}`}
+                >
+                    <div className="flex items-center gap-3 min-w-0">
+                        <span className="text-xl flex-shrink-0">{item.icon}</span>
+                        <div className="truncate">
+                            <div className="font-bold text-sm truncate flex items-center gap-2">
+                                {item.name}
+                                {item.isTakenOut && <span className="text-[10px] bg-yellow-500/20 text-yellow-500 px-1.5 py-0.5 rounded-md">{t.taken_out}</span>}
+                            </div>
+                            <div className="text-[10px] opacity-50 truncate flex items-center gap-1">
+                                <MapPin size={10}/> {locations.find(l=>l.id===item.locationId)?.name}
+                                {item.tags && item.tags.length > 0 && <span className="ml-1 text-blue-500">#{item.tags[0]}</span>}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                        <div className={`flex items-center gap-1 px-2 py-0.5 rounded-lg ${isDark?'bg-black/30':'bg-white/50'}`}>
+                            <button onClick={(e)=>{e.stopPropagation(); onUpdateQty(item, -1)}} className="p-1 hover:text-red-500"><Minus size={12}/></button>
+                            <span className="text-xs font-bold w-4 text-center">{item.quantity||0}</span>
+                            <button onClick={(e)=>{e.stopPropagation(); onUpdateQty(item, 1)}} className="p-1 hover:text-green-500"><Plus size={12}/></button>
+                        </div>
+                        <button 
+                            onClick={(e) => {e.stopPropagation(); onToggleTakeOut(item)}} 
+                            className={`p-2 rounded-xl transition-colors ${item.isTakenOut ? 'bg-yellow-500/20 text-yellow-500' : (isDark ? 'hover:bg-white/10' : 'hover:bg-black/5')}`}
+                        >
+                            {item.isTakenOut ? <CornerRightDown size={16} /> : <ArrowUpRight size={16} />}
+                        </button>
+                    </div>
+                </div>
+            );
+        };
+
+        const LocationDetailModal = ({ location, items, locations, onClose, onEdit, onUpdateQty, onToggleTakeOut, isDark, t }) => {
             if (!location) return null;
             const locItems = items.filter(i => i.locationId === location.id);
+            const [showQR, setShowQR] = useState(false);
+            const [viewMode, setViewMode] = useState('list'); // 'list' or 'grid'
+
             return (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 animate-fadeIn">
                     <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
                     <div className={`relative w-full max-w-sm max-h-[70vh] flex flex-col rounded-3xl shadow-2xl animate-scaleIn border backdrop-blur-xl ${isDark ? 'bg-gray-900/90 border-gray-700 text-white' : 'bg-white/90 border-white/50 text-gray-900'}`}>
                         <div className="p-6 border-b border-white/10 flex justify-between items-center shrink-0">
                             <div className="flex items-center gap-3"><span className="text-3xl">{location.icon}</span><div><h3 className="text-xl font-black">{location.name}</h3><p className="text-xs opacity-50">{locItems.length} {t.items_stored}</p></div></div>
-                            <button onClick={onClose} className={`p-2 rounded-full ${isDark?'hover:bg-white/10':'hover:bg-black/5'}`}><X size={20}/></button>
+                            <div className="flex gap-2">
+                                <button onClick={() => setViewMode(viewMode === 'list' ? 'grid' : 'list')} className={`p-2 rounded-full ${isDark?'hover:bg-white/10':'hover:bg-black/5'}`}>{viewMode === 'list' ? <Grid3X3 size={20}/> : <List size={20}/>}</button>
+                                <button onClick={() => setShowQR(!showQR)} className={`p-2 rounded-full ${isDark?'hover:bg-white/10 text-white':'hover:bg-black/5 text-black'}`}><QrCode size={20}/></button>
+                                <button onClick={onClose} className={`p-2 rounded-full ${isDark?'hover:bg-white/10':'hover:bg-black/5'}`}><X size={20}/></button>
+                            </div>
                         </div>
-                        <div className="overflow-y-auto p-4 space-y-2 no-scrollbar">
-                             {locItems.length > 0 ? locItems.map(item => (
-                                <div 
-                                    key={item.id} 
-                                    onClick={() => onEdit && onEdit(item)}
-                                    className={`flex items-center gap-3 p-3 rounded-2xl border cursor-pointer transition-all active:scale-95 hover:bg-white/10 ${isDark ? 'bg-white/5 border-white/5' : 'bg-white/50 border-white/40'}`}
-                                >
-                                    <span className="text-2xl">{item.icon}</span>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="font-bold text-sm truncate">{item.name}</div>
-                                         <div className="text-[10px] opacity-50 flex gap-2"><span>x{item.quantity || 1}</span>{item.expiryDate && <span>Exp: {item.expiryDate}</span>}</div>
-                                    </div>
-                                </div>
-                             )) : <div className="text-center py-8 opacity-40 text-sm">{t.empty_room}</div>}
-                        </div>
+                        
+                        {showQR ? (
+                            <div className="p-8 flex flex-col items-center justify-center bg-white m-4 rounded-2xl">
+                                <QRCode value={location.id} size={150} />
+                                <p className="mt-4 text-xs font-bold text-gray-500 uppercase tracking-widest">{t.print_hint}</p>
+                            </div>
+                        ) : (
+                            <div className="overflow-y-auto p-4 space-y-2 no-scrollbar">
+                                {locItems.length > 0 ? (
+                                    viewMode === 'list' ? (
+                                        <div className="space-y-2">
+                                            {locItems.map(item => (
+                                                <ItemCard 
+                                                    key={item.id} item={item} locations={locations} isDark={isDark} t={t}
+                                                    onEdit={onEdit} onUpdateQty={onUpdateQty} onToggleTakeOut={onToggleTakeOut}
+                                                />
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-3 gap-3">
+                                            {locItems.map(item => (
+                                                <div key={item.id} onClick={() => onEdit(item)} className={`aspect-square flex flex-col items-center justify-center p-2 rounded-2xl border cursor-pointer active:scale-95 ${isDark?'bg-white/5 border-white/5':'bg-white/50 border-white/40'}`}>
+                                                    <span className="text-2xl mb-1">{item.icon}</span>
+                                                    <span className="text-[10px] font-bold truncate w-full text-center">{item.name}</span>
+                                                    <span className="text-[9px] opacity-50">x{item.quantity}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )
+                                ) : <div className="text-center py-8 opacity-40 text-sm">{t.empty_room}</div>}
+                            </div>
+                        )}
                     </div>
                 </div>
             );
@@ -337,47 +456,27 @@
                     <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
                     <div className={`relative w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-scaleIn border backdrop-blur-xl ${isDark ? 'bg-gray-900/90 border-gray-700 text-white' : 'bg-white/90 border-white/50 text-gray-900'}`}>
                         <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10"><X size={20}/></button>
-                        
                         <div className="flex flex-col items-center gap-4 mb-6">
-                            <div className="w-20 h-20 rounded-full border-4 border-white shadow-lg overflow-hidden">
-                                <img src={user.photoURL} className="w-full h-full object-cover"/>
-                            </div>
-                            <div className="text-center">
-                                <h2 className="text-xl font-black">{user.displayName || 'User'}</h2>
-                                <p className="text-xs opacity-50">{user.email}</p>
-                            </div>
+                            <div className="w-20 h-20 rounded-full border-4 border-white shadow-lg overflow-hidden"><img src={user.photoURL} className="w-full h-full object-cover"/></div>
+                            <div className="text-center"><h2 className="text-xl font-black">{user.displayName || 'User'}</h2><p className="text-xs opacity-50">{user.email}</p></div>
                         </div>
-
                         <div className="space-y-4">
                             <div>
                                 <div className="text-xs font-bold opacity-50 uppercase mb-2 pl-1">{t.appearance}</div>
-                                <div className={`p-1 rounded-2xl grid grid-cols-2 gap-1 ${isDark ? 'bg-black/20' : 'bg-gray-100'}`}>
-                                    <button onClick={() => setConfig({...config, mode: 'light'})} className={`py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${config.mode === 'light' ? 'bg-white shadow-sm text-black' : 'opacity-50'}`}><Sun size={14}/> Light</button>
-                                    <button onClick={() => setConfig({...config, mode: 'dark'})} className={`py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${config.mode === 'dark' ? 'bg-gray-700 shadow-sm text-white' : 'opacity-50'}`}><Moon size={14}/> Dark</button>
-                                </div>
+                                <div className={`p-1 rounded-2xl grid grid-cols-2 gap-1 ${isDark ? 'bg-black/20' : 'bg-gray-100'}`}><button onClick={() => setConfig({...config, mode: 'light'})} className={`py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${config.mode === 'light' ? 'bg-white shadow-sm text-black' : 'opacity-50'}`}><Sun size={14}/> Light</button><button onClick={() => setConfig({...config, mode: 'dark'})} className={`py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${config.mode === 'dark' ? 'bg-gray-700 shadow-sm text-white' : 'opacity-50'}`}><Moon size={14}/> Dark</button></div>
                             </div>
                             <div>
                                 <div className="text-xs font-bold opacity-50 uppercase mb-2 pl-1">{t.theme_color}</div>
-                                <div className="flex justify-between px-2">
-                                    {Object.keys(THEME_COLORS).map(key => (<button key={key} onClick={() => setConfig({...config, color: key})} className={`w-8 h-8 rounded-full flex items-center justify-center transition-transform ${THEME_COLORS[key].blob.replace('bg-', 'bg-').replace('-300', '-500')} ${config.color === key ? 'scale-110 ring-2 ring-offset-2 ' + (isDark ? 'ring-offset-black' : 'ring-offset-white') : 'opacity-50'}`}>{config.color === key && <Check size={14} className="text-white"/>}</button>))}
-                                </div>
+                                <div className="flex justify-between px-2">{Object.keys(THEME_COLORS).map(key => (<button key={key} onClick={() => setConfig({...config, color: key})} className={`w-8 h-8 rounded-full flex items-center justify-center transition-transform ${THEME_COLORS[key].blob.replace('bg-', 'bg-').replace('-300', '-500')} ${config.color === key ? 'scale-110 ring-2 ring-offset-2 ' + (isDark ? 'ring-offset-black' : 'ring-offset-white') : 'opacity-50'}`}>{config.color === key && <Check size={14} className="text-white"/>}</button>))}</div>
                             </div>
                             <div>
                                 <div className="text-xs font-bold opacity-50 uppercase mb-2 pl-1">{t.language}</div>
                                 <div className={`flex flex-col rounded-2xl overflow-hidden ${isDark ? 'bg-black/20' : 'bg-gray-100'}`}>
-                                    {['zh-TW', 'zh-CN', 'en'].map(lang => (
-                                        <button key={lang} onClick={() => setConfig({...config, lang})} className={`p-3 text-xs font-bold flex justify-between hover:bg-black/5 dark:hover:bg-white/5`}>
-                                            <span>{lang === 'zh-TW' ? '繁體' : lang === 'zh-CN' ? '简体' : 'English'}</span>
-                                            {config.lang === lang && <Check size={14} />}
-                                        </button>
-                                    ))}
+                                    {['zh-TW', 'zh-CN', 'en'].map(lang => (<button key={lang} onClick={() => setConfig({...config, lang})} className={`p-3 text-xs font-bold flex justify-between hover:bg-black/5 dark:hover:bg-white/5`}><span>{lang === 'zh-TW' ? '繁體' : lang === 'zh-CN' ? '简体' : 'English'}</span>{config.lang === lang && <Check size={14} />}</button>))}
                                 </div>
                             </div>
                         </div>
-
-                        <button onClick={onLogout} className="w-full py-3.5 bg-red-500/10 text-red-500 font-bold rounded-2xl text-sm mt-6 hover:bg-red-500/20 transition-colors flex items-center justify-center gap-2">
-                            <LogOut size={16}/> {t.logout}
-                        </button>
+                        <button onClick={onLogout} className="w-full py-3.5 bg-red-500/10 text-red-500 font-bold rounded-2xl text-sm mt-6 hover:bg-red-500/20 transition-colors flex items-center justify-center gap-2"><LogOut size={16}/> {t.logout}</button>
                     </div>
                 </div>
             );
@@ -405,6 +504,33 @@
                 </div>
             );
         };
+        
+        const ScannerModal = ({ isOpen, onClose, onScan, isDark, t }) => {
+            const scannerRef = useRef(null);
+            useEffect(() => {
+                if (isOpen) {
+                    const timer = setTimeout(() => {
+                         if (!window.Html5QrcodeScanner) { console.error("Scanner lib not loaded"); return; }
+                        if (scannerRef.current) return; 
+                        const scanner = new window.Html5QrcodeScanner("reader", { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 }, false);
+                        scanner.render((decodedText) => { onScan(decodedText); onClose(); }, (err) => {});
+                        scannerRef.current = scanner;
+                    }, 300);
+                    return () => { clearTimeout(timer); if (scannerRef.current) { scannerRef.current.clear().catch(console.error); scannerRef.current = null; } };
+                }
+            }, [isOpen]);
+            if (!isOpen) return null;
+            return (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-fadeIn">
+                    <div className="absolute inset-0 bg-black/90 backdrop-blur-sm" onClick={onClose} />
+                    <div className={`relative w-full max-w-sm rounded-3xl p-4 shadow-2xl animate-scaleIn border overflow-hidden ${isDark ? 'bg-gray-900 border-gray-700' : 'bg-white border-white'}`}>
+                        <div className="flex justify-between items-center mb-4 px-2"><h3 className={`font-bold ${isDark?'text-white':'text-black'}`}>{t.scan_btn}</h3><button onClick={onClose}><X size={20} className={isDark?'text-white':'text-black'}/></button></div>
+                        <div id="reader" className="rounded-xl overflow-hidden bg-black min-h-[300px]"></div>
+                        <p className="text-center text-xs opacity-50 mt-4">{t.scan_hint}</p>
+                    </div>
+                </div>
+            );
+        };
 
         function App() {
             const [user, setUser] = useState(null);
@@ -420,13 +546,13 @@
             const [items, setItems] = useState([]);
             const [locations, setLocations] = useState([]);
             const [rooms, setRooms] = useState([]);
-            // Consolidate room state: use currentRoom object as source of truth
             const [currentRoom, setCurrentRoom] = useState({ id: 'default', name: 'My Room' });
 
             // Modal States
             const [editModal, setEditModal] = useState({ isOpen: false, type: 'item', data: {} });
             const [showProfile, setShowProfile] = useState(false);
             const [showRoomMenu, setShowRoomMenu] = useState(false);
+            const [showScanner, setShowScanner] = useState(false);
             const [detailLocation, setDetailLocation] = useState(null);
 
             // Auth Inputs
@@ -448,15 +574,6 @@
             const themeStyles = THEME_COLORS[config.color];
             const t = TRANSLATIONS[config.lang] || TRANSLATIONS['zh-TW'];
             const [randomHeadline, setRandomHeadline] = useState("");
-
-            // Define calculated values BEFORE they are used in handlers
-            const currentLocations = useMemo(() => locations.filter(l => l.room === currentRoom.id || (!l.room && currentRoom.id === 'default')), [locations, currentRoom]);
-            const currentItems = useMemo(() => items, [items]);
-            const filteredHomeItems = useMemo(() => inputValue ? currentItems.filter(i => i.name.toLowerCase().includes(inputValue.toLowerCase())) : currentItems.slice(0, 10), [currentItems, inputValue]);
-            const lowStockItems = useMemo(() => items.filter(i => (parseInt(i.quantity)||0) < 2), [items]);
-            const totalValue = items.reduce((acc, curr) => acc + ((parseInt(curr.quantity)||0) * (parseFloat(curr.price)||0)), 0);
-            const isAddMode = inputValue.length > 0 && isInputFocused;
-            const currentRoomName = useMemo(() => { const r = rooms.find(r => r.id === currentRoom.id); return r ? r.name : t.my_room; }, [rooms, currentRoom, t.my_room]);
 
             const greetingText = useMemo(() => {
                 const h = new Date().getHours();
@@ -539,6 +656,11 @@
                 try { await updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'items', item.id), { quantity: newQty }); } catch(e) { console.error(e); }
             };
 
+            const handleToggleTakeOut = async (item) => {
+                const newState = !item.isTakenOut;
+                try { await updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'items', item.id), { isTakenOut: newState }); } catch(e) { console.error(e); }
+            };
+
             const handleDeleteItem = async (id) => {
                 if (confirm(t.confirm_delete)) {
                      await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'items', id));
@@ -550,6 +672,18 @@
                 if (!newRoomName.trim()) return;
                 const res = await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'rooms'), { name: newRoomName, createdAt: serverTimestamp() });
                 setNewRoomName(''); setCurrentRoom({id: res.id, name: newRoomName}); localStorage.setItem(`last_room_${user.uid}`, res.id); setShowRoomMenu(false);
+            };
+            
+            const handleScan = (code) => {
+                const foundLoc = locations.find(l => l.id === code);
+                if (foundLoc) { setDetailLocation(foundLoc); setShowScanner(false); return; }
+                const foundItem = items.find(i => i.id === code); // Assuming QR stores ID for now
+                if (foundItem) { setInputValue(foundItem.name); setActiveTab('home'); setShowScanner(false); return; }
+                
+                if (confirm(`${t.not_found_create} (${code})`)) {
+                    setEditModal({ isOpen: true, type: 'item', data: { tags: [code] } }); // Add code as tag for new item
+                    setShowScanner(false);
+                }
             };
 
             const handleAuth = async (e) => {
@@ -568,13 +702,30 @@
                 try {
                     await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'items'), { 
                         name: inputValue, locationId: selectedLocationId, icon: activeIcon, 
-                        quantity: 1, price: 0, createdAt: serverTimestamp() 
+                        quantity: 1, price: 0, createdAt: serverTimestamp(),
+                        entryDate: new Date().toISOString().split('T')[0] // Auto entry date
                     });
                     setInputValue(''); setIsSubmitting(false); showToast(t.toast_added);
                 } catch(e) { console.error(e); }
             };
             
             const handleGoogleLogin = async () => { try { await signInWithPopup(auth, provider); } catch (e) { console.error(e); } };
+
+            const roomLocations = useMemo(() => locations.filter(l => l.room === currentRoom.id || (!l.room && currentRoom.id === 'default')), [locations, currentRoom]);
+            const currentItems = useMemo(() => {
+                return items; // Home shows everything
+            }, [items]);
+            const filteredHomeItems = useMemo(() => inputValue ? currentItems.filter(i => i.name.toLowerCase().includes(inputValue.toLowerCase()) || (i.tags && i.tags.some(tag => tag.toLowerCase().includes(inputValue.toLowerCase())))) : currentItems.slice(0, 10), [currentItems, inputValue]);
+            
+            const lowStockItems = useMemo(() => items.filter(i => (parseInt(i.quantity)||0) < 2), [items]);
+            const totalValue = items.reduce((acc, curr) => acc + ((parseInt(curr.quantity)||0) * (parseFloat(curr.price)||0)), 0);
+
+            const isAddMode = inputValue.length > 0 && isInputFocused;
+            
+            const currentRoomName = useMemo(() => {
+                const r = rooms.find(r => r.id === currentRoom.id);
+                return r ? r.name : t.my_room;
+            }, [rooms, currentRoom, t.my_room]);
 
             // --- Render ---
             if (authLoading) return <div className="h-screen w-full bg-white flex items-center justify-center"><Sparkles className="animate-spin text-gray-400"/></div>;
@@ -657,7 +808,10 @@
                         {/* Top Bar (Unified) */}
                         <div className={`absolute top-0 left-0 right-0 pt-12 pb-4 px-6 flex justify-between items-center z-50 transition-colors duration-300`}>
                              <button onClick={()=>setShowRoomMenu(!showRoomMenu)} className={`flex items-center gap-1 font-black text-xl tracking-tighter hover:opacity-70 transition-opacity ${isDark?'text-white':'text-gray-900'}`}>{currentRoomName} <ChevronDown size={16}/></button>
-                             <button onClick={() => setShowProfile(true)} className="w-10 h-10 rounded-full border-2 border-white/20 shadow-md overflow-hidden"><img src={user.photoURL} className="w-full h-full object-cover"/></button>
+                             <div className="flex gap-4">
+                                <button onClick={() => setShowScanner(true)} className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10"><ScanLine size={20}/></button>
+                                <button onClick={() => setShowProfile(true)} className="w-10 h-10 rounded-full border-2 border-white/20 shadow-md overflow-hidden"><img src={user.photoURL} className="w-full h-full object-cover"/></button>
+                             </div>
                         </div>
 
                         {/* Room Menu */}
@@ -713,8 +867,9 @@
                                         {showIconPicker && <IconPicker selectedIcon={activeIcon} onSelect={setActiveIcon} onClose={() => setShowIconPicker(false)} isDark={isDark} />}
                                         <div className={`overflow-hidden transition-all duration-500 ease-in-out ${isAddMode ? 'max-h-64 opacity-100 border-t ' + (isDark ? 'border-white/10' : 'border-black/5') : 'max-h-0 opacity-0'}`}>
                                             <div className="p-3">
+                                                <div className="text-xs font-bold opacity-50 mb-2 pl-1">{t.select_location}</div>
                                                 <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-                                                    {currentLocations.map(loc => (<button key={loc.id} onClick={() => setSelectedLocationId(loc.id)} className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border transition-all shrink-0 ${selectedLocationId === loc.id ? `${themeStyles.bg} text-white border-transparent shadow-md scale-105` : `${isDark ? 'bg-white/10 border-white/20 text-gray-300' : 'bg-white border-gray-200 text-gray-600'}`}`}><span>{loc.icon}</span><span className="font-bold text-xs">{loc.name}</span></button>))}
+                                                    {roomLocations.map(loc => (<button key={loc.id} onClick={() => setSelectedLocationId(loc.id)} className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border transition-all shrink-0 ${selectedLocationId === loc.id ? `${themeStyles.bg} text-white border-transparent shadow-md scale-105` : `${isDark ? 'bg-white/10 border-white/20 text-gray-300' : 'bg-white border-gray-200 text-gray-600'}`}`}><span>{loc.icon}</span><span className="font-bold text-xs">{loc.name}</span></button>))}
                                                 </div>
                                                 {selectedLocationId && <button onClick={handleAddItem} disabled={isSubmitting} className={`w-full mt-2 bg-gradient-to-r ${themeStyles.from} ${themeStyles.to} text-white font-bold py-3 rounded-xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 animate-bounce-slight`}>{isSubmitting ? <Sparkles size={16} className="animate-spin"/> : <Save size={16}/>} {t.save_btn}</button>}
                                             </div>
@@ -726,24 +881,12 @@
                                         <h3 className="text-sm font-bold opacity-50 mb-3 ml-1">{t.items_stored}</h3>
                                         <div className="space-y-2">
                                             {filteredHomeItems.map(item => (
-                                                <div 
-                                                    key={item.id} 
-                                                    onClick={() => setEditModal({ isOpen: true, type: 'item', data: item })} // Click to Edit
-                                                    className={`flex items-center justify-between p-3 rounded-2xl border transition-all cursor-pointer active:scale-95 ${isDark ? 'bg-white/5 border-white/5 hover:bg-white/10' : 'bg-white/60 border-white/40 shadow-sm hover:bg-white/80'}`}
-                                                >
-                                                    <div className="flex items-center gap-3">
-                                                        <span className="text-xl">{item.icon}</span>
-                                                        <div><div className="font-bold text-sm">{item.name}</div><div className="text-[10px] opacity-50">{locations.find(l=>l.id===item.locationId)?.name}</div></div>
-                                                    </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <div className={`flex items-center gap-1 px-2 py-0.5 rounded-lg ${isDark?'bg-black/30':'bg-white/50'}`}>
-                                                            <button onClick={(e)=>{e.stopPropagation(); handleUpdateQty(item, -1)}} className="p-1 hover:text-red-500"><Minus size={12}/></button>
-                                                            <span className="text-xs font-bold w-4 text-center">{item.quantity||0}</span>
-                                                            <button onClick={(e)=>{e.stopPropagation(); handleUpdateQty(item, 1)}} className="p-1 hover:text-green-500"><Plus size={12}/></button>
-                                                        </div>
-                                                        <button onClick={(e) => {e.stopPropagation(); handleDeleteItem(item.id)}} className="opacity-30 hover:opacity-100"><Trash2 size={16}/></button>
-                                                    </div>
-                                                </div>
+                                                <ItemCard 
+                                                    key={item.id} item={item} locations={locations} isDark={isDark} t={t}
+                                                    onEdit={() => setEditModal({ isOpen: true, type: 'item', data: item })}
+                                                    onUpdateQty={handleUpdateQty}
+                                                    onToggleTakeOut={handleToggleTakeOut}
+                                                />
                                             ))}
                                         </div>
                                     </div>
@@ -760,7 +903,7 @@
                                         <button onClick={() => { setEditModal({ isOpen: true, type: 'room', data: {} }); }} className={`w-8 h-8 rounded-full flex items-center justify-center ${isDark?'bg-white/10':'bg-gray-200 text-gray-500'}`}><Plus size={16}/></button>
                                     </div>
                                     <div className="grid grid-cols-2 gap-3">
-                                        {currentLocations.map((loc, idx) => {
+                                        {roomLocations.map((loc, idx) => {
                                             const count = items.filter(i => i.locationId === loc.id).length;
                                             return (
                                                 <button key={loc.id} onClick={() => setDetailLocation(loc)} className={`relative group p-4 rounded-3xl border flex flex-col justify-between h-36 text-left transition-all active:scale-95 ${isDark ? 'bg-white/5 border-white/5 hover:bg-white/10' : 'bg-white/60 border-white/40 shadow-sm hover:bg-white/80'}`} style={{animationDelay: `${idx*0.05}s`}}>
@@ -771,7 +914,7 @@
                                             )
                                         })}
                                     </div>
-                                    {currentLocations.length === 0 && <div className="text-center py-20 opacity-30">{t.empty_room}</div>}
+                                    {roomLocations.length === 0 && <div className="text-center py-20 opacity-30">{t.empty_room}</div>}
                                 </div>
                             )}
 
@@ -794,7 +937,18 @@
                         <FloatingActionButton onAction={(type) => setEditModal({ isOpen: true, type, data: {} })} isDark={isDark} t={t} />
 
                         {/* Modals */}
-                        <EditModal isOpen={editModal.isOpen} type={editModal.type} data={editModal.data} onClose={() => setEditModal({...editModal, isOpen: false})} onSave={handleSave} onDelete={handleDelete} t={t} isDark={isDark} locations={locations} rooms={rooms} />
+                        <EditModal 
+                            isOpen={editModal.isOpen} 
+                            type={editModal.type} 
+                            data={editModal.data} 
+                            onClose={() => setEditModal({...editModal, isOpen: false})} 
+                            onSave={handleSave} 
+                            onDelete={handleDelete} 
+                            t={t} 
+                            isDark={isDark}
+                            locations={locations}
+                            rooms={rooms}
+                        />
                         
                         {showProfile && (
                             <ProfileModal user={user} onClose={() => setShowProfile(false)} onLogout={() => { signOut(auth); setShowProfile(false); setOnboardingStep('welcome'); }} t={t} isDark={isDark} config={config} setConfig={setConfig} />
@@ -803,11 +957,16 @@
                         <LocationDetailModal 
                             location={detailLocation} 
                             items={items} 
+                            locations={locations}
                             onClose={() => setDetailLocation(null)} 
                             onEdit={(item) => setEditModal({ isOpen: true, type: 'item', data: item })} 
+                            onUpdateQty={handleUpdateQty}
+                            onToggleTakeOut={handleToggleTakeOut}
                             isDark={isDark} 
                             t={t} 
                         />
+                        
+                        <ScannerModal isOpen={showScanner} onClose={()=>setShowScanner(false)} onScan={handleScan} isDark={isDark} t={t} />
 
                         <div className={`absolute bottom-6 right-6 text-[10px] font-mono font-bold pointer-events-none select-none opacity-20 ${isDark ? 'text-white' : 'text-black'}`}>@colasonyt1123</div>
                     </div>
