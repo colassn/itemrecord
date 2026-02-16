@@ -1,981 +1,500 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-HK">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>MyStorage</title>
+    <title>GlassPay NFC | 真實版</title>
     
-    <!-- 1. Tailwind CSS -->
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- 2. Import Map -->
-    <script type="importmap">
-    {
-        "imports": {
-            "react": "https://esm.sh/react@18.2.0",
-            "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
-            "lucide-react": "https://esm.sh/lucide-react@0.292.0",
-            "react-qr-code": "https://esm.sh/react-qr-code@2.0.12",
-            "firebase/app": "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js",
-            "firebase/auth": "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js",
-            "firebase/firestore": "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js",
-            "firebase/analytics": "https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics.js"
-        }
-    }
-    </script>
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
 
-    <!-- 3. Babel -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 
     <style>
-        html, body, #root { height: 100%; width: 100%; overflow: hidden; margin: 0; padding: 0; position: fixed; }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        
-        .animate-slideDown { animation: slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-        @keyframes slideDown { from { opacity: 0; transform: scaleY(0.9) translateY(-10px); } to { opacity: 1; transform: scaleY(1) translateY(0); } }
-
-        .animate-slideUp { animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        
-        .animate-fadeIn { animation: fadeIn 0.4s ease-out forwards; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-
-        .animate-bounce-slight { animation: bounceSlight 0.3s infinite alternate; }
-        @keyframes bounceSlight { from { transform: translateY(0); } to { transform: translateY(-2px); } }
-        
-        .animate-scaleIn { animation: scaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-        @keyframes scaleIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
-
-        .ease-spring { transition-timing-function: cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-
-        @keyframes blob {
-            0% { transform: translate(0px, 0px) scale(1); }
-            33% { transform: translate(30px, -50px) scale(1.1); }
-            66% { transform: translate(-20px, 20px) scale(0.9); }
-            100% { transform: translate(0px, 0px) scale(1); }
+        /* 基礎設置 */
+        :root {
+            --glass-surface: rgba(20, 25, 40, 0.7);
+            --glass-border: rgba(255, 255, 255, 0.15);
+            --primary: #6366f1;
         }
-        .animate-blob { animation: blob 15s infinite; }
-        .animation-delay-2000 { animation-delay: 2s; }
-        .animation-delay-4000 { animation-delay: 4s; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #000;
+            color: white;
+            overflow: hidden;
+            -webkit-tap-highlight-color: transparent;
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+
+        /* 背景動態 */
+        .ambient-bg {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            z-index: -1;
+            background: #0f172a;
+        }
+        .orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(60px);
+            opacity: 0.5;
+            transition: all 1s ease;
+        }
+        .orb-1 { top: -10%; left: -10%; width: 70vw; height: 70vw; background: #4f46e5; animation: float 8s infinite alternate; }
+        .orb-2 { bottom: -10%; right: -10%; width: 80vw; height: 80vw; background: #ec4899; animation: float 10s infinite alternate-reverse; }
+
+        @keyframes float {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(20px, 30px); }
+        }
+
+        /* 主容器 */
+        .app-container {
+            height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            background: rgba(255, 255, 255, 0.02);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+
+        /* 頂部區域 */
+        .top-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+            padding: 2rem;
+            z-index: 10;
+        }
         
-        body { -webkit-tap-highlight-color: transparent; }
+        .app-container.active .top-section {
+            flex: 0 0 auto;
+            padding: 1rem;
+            padding-top: 2rem;
+            height: 35vh;
+            justify-content: flex-start;
+        }
+
+        /* 底部區域 */
+        .bottom-sheet {
+            position: absolute;
+            bottom: 0; left: 0; width: 100%; height: 65vh;
+            background: rgba(30, 41, 59, 0.85);
+            backdrop-filter: blur(30px);
+            border-top: 1px solid rgba(255,255,255,0.1);
+            border-radius: 30px 30px 0 0;
+            transform: translateY(110%);
+            transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+            z-index: 20;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 -10px 40px rgba(0,0,0,0.3);
+        }
+        
+        .app-container.active .bottom-sheet {
+            transform: translateY(0);
+        }
+
+        /* 會員卡 */
+        .member-card {
+            width: 100%; max-width: 340px; aspect-ratio: 1.58/1;
+            background: linear-gradient(135deg, #d4af37 0%, #fcd34d 50%, #b45309 100%);
+            border-radius: 20px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+            position: relative;
+            padding: 20px;
+            display: flex; flex-direction: column; justify-content: space-between;
+            transform: scale(0.9);
+            opacity: 0;
+            transition: all 0.5s ease;
+        }
+
+        .app-container.active .member-card {
+            transform: scale(0.85);
+            opacity: 1;
+            margin-top: 0;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        /* NFC 提示區 */
+        .nfc-prompt {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            transition: opacity 0.3s;
+            width: 100%;
+        }
+        
+        .app-container.active .nfc-prompt {
+            opacity: 0; pointer-events: none;
+        }
+
+        .pulse-ring {
+            width: 140px; height: 140px;
+            border-radius: 50%;
+            border: 2px dashed rgba(255,255,255,0.3);
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 20px;
+        }
+        .scanning .pulse-ring {
+            border-color: #6366f1;
+            animation: spin 2s linear infinite;
+        }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        /* 金額按鈕 */
+        .amount-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 0 24px;
+        }
+        .amount-btn {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px; padding: 16px; text-align: left; transition: all 0.2s;
+        }
+        .amount-btn:active { transform: scale(0.96); }
+        .amount-btn.selected {
+            background: #fff; color: #000; border-color: #fff; box-shadow: 0 4px 20px rgba(255,255,255,0.2);
+        }
+
+        /* Action Bar */
+        .action-bar {
+            margin-top: auto; padding: 24px;
+            background: linear-gradient(to top, rgba(30, 41, 59, 1) 50%, rgba(30, 41, 59, 0));
+        }
+        .pay-btn {
+            width: 100%; height: 56px; border-radius: 28px;
+            background: #6366f1; color: white; font-weight: 700;
+            font-size: 1.1rem; display: flex; align-items: center; justify-content: center; gap: 8px;
+            box-shadow: 0 4px 20px rgba(99, 102, 241, 0.4); transition: all 0.3s;
+        }
+        .pay-btn:disabled { opacity: 0.5; box-shadow: none; filter: grayscale(1); }
+
+        /* 字體 */
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+
+        /* 狀態文字 */
+        #nfc-status-text { min-height: 24px; }
     </style>
 </head>
-<body class="bg-gray-50">
-    <div id="root"></div>
+<body>
 
-    <script type="text/babel" data-type="module">
-        import React, { useState, useEffect, useMemo, useRef } from 'react';
-        import { createRoot } from 'react-dom/client';
-        import { 
-            Search, Plus, MapPin, Trash2, Save, X, Box, Settings, 
-            LogOut, Sparkles, Moon, Sun, Check, Home, FolderOpen, User, 
-            ChevronRight, Edit3, ArrowRight, Globe, LayoutGrid, Mail, Lock, 
-            AlertTriangle, ChevronDown, Package, Hash, Tag, Layers, MoreVertical, Minus,
-            ArrowUpRight, CornerRightDown, QrCode, Calendar, List, Grid3X3, ScanLine, Clock
-        } from 'lucide-react';
-        import QRCode from "react-qr-code";
-        
-        import { initializeApp } from "firebase/app";
-        import { 
-            getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut,
-            createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile
-        } from "firebase/auth";
-        import { 
-            getFirestore, collection, addDoc, deleteDoc, updateDoc, doc, onSnapshot, query, orderBy, serverTimestamp, where 
-        } from "firebase/firestore";
+    <div class="ambient-bg">
+        <div class="orb orb-1" id="bg-orb-1"></div>
+        <div class="orb orb-2" id="bg-orb-2"></div>
+    </div>
 
-        // ==========================================
-        // ▼ 您的 Firebase 設定 ▼
-        // ==========================================
-        const firebaseConfig = {
-            apiKey: "AIzaSyA4SVxeJVjeFQZ924SGgYLFkDenj89H2wI",
-            authDomain: "tuckshoprecord.firebaseapp.com",
-            projectId: "tuckshoprecord",
-            storageBucket: "tuckshoprecord.firebasestorage.app",
-            messagingSenderId: "10691492783",
-            appId: "1:10691492783:web:5aaad9938189a2448dcd5a",
-            measurementId: "G-DCG0MCG6FD"
-        };
-        // ==========================================
-        
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const provider = new GoogleAuthProvider();
-        const appId = "my-room-v23-fixed";
-
-        const THEME_COLORS = {
-            blue: { name: 'Ocean', from: 'from-blue-600', to: 'to-cyan-500', blob: 'bg-blue-300', text: 'text-blue-600', bg: 'bg-blue-500', border: 'border-blue-500', lightBg: 'bg-blue-50' },
-            purple: { name: 'Galaxy', from: 'from-purple-600', to: 'to-pink-500', blob: 'bg-purple-300', text: 'text-purple-600', bg: 'bg-purple-500', border: 'border-purple-500', lightBg: 'bg-purple-50' },
-            pink: { name: 'Sakura', from: 'from-pink-500', to: 'to-rose-400', blob: 'bg-pink-300', text: 'text-pink-600', bg: 'bg-pink-500', border: 'border-pink-500', lightBg: 'bg-pink-50' },
-            orange: { name: 'Sunset', from: 'from-orange-500', to: 'to-amber-500', blob: 'bg-orange-300', text: 'text-orange-600', bg: 'bg-orange-500', border: 'border-orange-500', lightBg: 'bg-orange-50' },
-            green: { name: 'Emerald', from: 'from-emerald-600', to: 'to-teal-400', blob: 'bg-emerald-300', text: 'text-emerald-600', bg: 'bg-emerald-500', border: 'border-emerald-500', lightBg: 'bg-emerald-50' },
-        };
-
-        const TRANSLATIONS = {
-            'zh-TW': {
-                tab_home: "首頁", tab_space: "倉庫", tab_profile: "設定",
-                welcome: "歡迎回到", greeting: { morning: "早安", afternoon: "午安", evening: "晚安" },
-                search_placeholder: "搜尋物品、標籤 (如 #螺絲)...",
-                save_btn: "入庫", login_btn: "會員登入", logout: "登出帳號",
-                confirm_delete: "確定移除？", delete_room_confirm: "刪除區域會連同清空內容，確定？",
-                add_new: "新增", search: "搜尋...", name: "名稱", icon: "圖標",
-                my_room: "我的區域", cancel: "取消", confirm: "確定",
-                select_room: "選擇區域", select_location: "選擇容器",
-                welcome_title: "MyStorage", welcome_subtitle: "您的個人物品索引系統",
-                feature_1: "極速搜尋", feature_2: "視覺索引", feature_3: "空間管理",
-                login_hint: "如果您已是用戶，請按此登入",
-                no_google: "使用電郵登入",
-                email_ph: "電子郵件", password_ph: "密碼", username_ph: "用戶名",
-                login_submit: "登入", register_submit: "註冊",
-                select_lang: "選擇語言",
-                switch_to_register: "還沒有帳號？去註冊", switch_to_login: "已有帳號？去登入",
-                qty: "數量", price: "價格", expiry: "到期日", entry_date: "入庫日", tags: "標籤 (空格分隔)",
-                low_stock: "補貨清單", expiring: "即將過期", total_value: "總資產",
-                items_stored: "件物品", empty_room: "這裡空空的", 
-                fab_item: "物品", fab_location: "容器", fab_room: "區域",
-                edit: "編輯", delete: "刪除",
-                taken_out: "使用中", take_out: "取出", put_back: "放回",
-                toast_added: "已入庫", toast_deleted: "已刪除", toast_updated: "已更新",
-                settings: "設定", appearance: "外觀", theme_color: "主題色", language: "語言",
-                qr_code: "容器 QR Code", print_hint: "列印並貼在容器外"
-            },
-            'zh-CN': {
-                tab_home: "首页", tab_space: "仓库", tab_profile: "设置",
-                welcome: "欢迎回到", greeting: { morning: "早上好", afternoon: "下午好", evening: "晚上好" },
-                search_placeholder: "搜索物品、标签...",
-                save_btn: "入库", login_btn: "会员登录", logout: "退出账号",
-                confirm_delete: "确定移除？", delete_room_confirm: "删除区域会连同清空内容，确定？",
-                add_new: "新增", search: "搜索...", name: "名称", icon: "图标",
-                my_room: "我的区域", cancel: "取消", confirm: "确定",
-                select_room: "选择区域", select_location: "选择容器",
-                welcome_title: "MyStorage", welcome_subtitle: "您的个人物品索引系统",
-                feature_1: "极速搜索", feature_2: "视觉索引", feature_3: "空间管理",
-                login_hint: "如果您已是用户，请按此登录",
-                no_google: "使用电邮登录",
-                email_ph: "电子邮箱", password_ph: "密码", username_ph: "用户名",
-                login_submit: "登录", register_submit: "注册",
-                select_lang: "选择语言",
-                switch_to_register: "还没有账号？去注册", switch_to_login: "已有账号？去登录",
-                qty: "数量", price: "价格", expiry: "到期日", entry_date: "入库日", tags: "标签 (空格分隔)",
-                low_stock: "补货清单", expiring: "即将过期", total_value: "总资产",
-                items_stored: "件物品", empty_room: "这里空空的", 
-                fab_item: "物品", fab_location: "容器", fab_room: "区域",
-                edit: "编辑", delete: "删除",
-                taken_out: "使用中", take_out: "取出", put_back: "放回",
-                toast_added: "已入库", toast_deleted: "已删除", toast_updated: "已更新",
-                settings: "设置", appearance: "外观", theme_color: "主题色", language: "语言",
-                qr_code: "容器 QR Code", print_hint: "打印并贴在容器外"
-            },
-            'en': {
-                tab_home: "Home", tab_space: "Storage", tab_profile: "Settings",
-                welcome: "Welcome back", greeting: { morning: "Good Morning", afternoon: "Good Afternoon", evening: "Good Evening" },
-                search_placeholder: "Search items, tags...",
-                save_btn: "Save", login_btn: "Login", logout: "Log Out",
-                confirm_delete: "Delete item?", delete_room_confirm: "Delete zone and all contents?",
-                add_new: "Add", search: "Search...", name: "Name", icon: "Icon",
-                my_room: "My Zone", cancel: "Cancel", confirm: "Confirm",
-                select_room: "Select Zone", select_location: "Select Container",
-                welcome_title: "MyStorage", welcome_subtitle: "Your Personal Inventory System",
-                feature_1: "Smart Search", feature_2: "Visual Index", feature_3: "Space Mgmt",
-                login_hint: "Already a user? Login here",
-                no_google: "Email Login",
-                email_ph: "Email", password_ph: "Password", username_ph: "Username",
-                login_submit: "Login", register_submit: "Register",
-                select_lang: "Select Language",
-                switch_to_register: "Need account? Register", switch_to_login: "Have account? Login",
-                qty: "Qty", price: "Price", expiry: "Expiry", entry_date: "Entry Date", tags: "Tags (space separated)",
-                low_stock: "Low Stock", expiring: "Expiring", total_value: "Total Value",
-                items_stored: "items", empty_room: "Nothing here", 
-                fab_item: "Item", fab_location: "Container", fab_room: "Room",
-                edit: "Edit", delete: "Delete",
-                taken_out: "In Use", take_out: "Take Out", put_back: "Put Back",
-                toast_added: "Added", toast_deleted: "Deleted", toast_updated: "Updated",
-                settings: "Settings", appearance: "Appearance", theme_color: "Theme Color", language: "Language",
-                qr_code: "Container QR", print_hint: "Print and stick on container"
-            }
-        };
-
-        // --- Components ---
-        const Toast = ({ message, type, onClose }) => {
-            useEffect(() => { const t = setTimeout(onClose, 2000); return () => clearTimeout(t); }, []);
-            return (
-                <div className={`fixed top-6 left-1/2 -translate-x-1/2 px-6 py-3 rounded-full shadow-2xl z-[150] animate-toast flex items-center gap-2 font-bold text-sm bg-white/90 text-black backdrop-blur-xl border border-white/20`}>
-                    <Check size={16} className="text-green-500" /> {message}
-                </div>
-            );
-        };
-
-        const FloatingActionButton = ({ onAction, isDark, t }) => {
-            const [isOpen, setIsOpen] = useState(false);
-            return (
-                <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
-                    {isOpen && (
-                        <div className="flex flex-col items-end gap-3 animate-slideUp">
-                            <button onClick={() => { onAction('room'); setIsOpen(false); }} className={`flex items-center gap-3 px-4 py-2 rounded-full shadow-lg font-bold text-sm ${isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-800'}`}>
-                                {t.fab_room} <div className="p-2 bg-purple-500 rounded-full text-white"><Home size={16}/></div>
-                            </button>
-                            <button onClick={() => { onAction('location'); setIsOpen(false); }} className={`flex items-center gap-3 px-4 py-2 rounded-full shadow-lg font-bold text-sm ${isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-800'}`}>
-                                {t.fab_location} <div className="p-2 bg-blue-500 rounded-full text-white"><FolderOpen size={16}/></div>
-                            </button>
-                            <button onClick={() => { onAction('item'); setIsOpen(false); }} className={`flex items-center gap-3 px-4 py-2 rounded-full shadow-lg font-bold text-sm ${isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-800'}`}>
-                                {t.fab_item} <div className="p-2 bg-green-500 rounded-full text-white"><Package size={16}/></div>
-                            </button>
-                        </div>
-                    )}
-                    <button onClick={() => setIsOpen(!isOpen)} className={`w-14 h-14 rounded-full shadow-xl flex items-center justify-center transition-transform active:scale-90 ${isOpen ? 'bg-red-500 rotate-45' : 'bg-black dark:bg-white'} ${isOpen ? 'text-white' : 'text-white dark:text-black'}`}><Plus size={28} strokeWidth={3} /></button>
-                </div>
-            );
-        };
-
-        const AuroraBackground = ({ isDark, colorTheme }) => (
-            <div className={`absolute inset-0 overflow-hidden pointer-events-none transition-colors duration-1000 ${isDark ? 'bg-black' : 'bg-white'}`}>
-                <div className={`absolute top-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full mix-blend-multiply filter blur-[100px] opacity-30 animate-blob ${isDark ? `bg-${colorTheme}-900 mix-blend-lighten opacity-15` : `${THEME_COLORS[colorTheme]?.blob || 'bg-blue-300'}`}`}></div>
-                <div className={`absolute top-[20%] right-[-10%] w-[400px] h-[400px] rounded-full mix-blend-multiply filter blur-[100px] opacity-30 animate-blob animation-delay-2000 ${isDark ? 'bg-purple-900 mix-blend-lighten opacity-15' : 'bg-purple-300'}`}></div>
-                <div className={`absolute bottom-[-10%] left-[20%] w-[600px] h-[600px] rounded-full mix-blend-multiply filter blur-[100px] opacity-30 animate-blob animation-delay-4000 ${isDark ? 'bg-blue-900 mix-blend-lighten opacity-15' : 'bg-blue-200'}`}></div>
+    <div class="app-container" id="app-container">
+        <!-- 頂部欄 -->
+        <div class="absolute top-0 left-0 w-full p-6 flex justify-between items-center z-30">
+            <div class="flex items-center gap-2">
+                <i class="ph-fill ph-nfc text-2xl text-indigo-400"></i>
+                <span class="font-bold tracking-wider text-lg">GlassPay NFC</span>
             </div>
-        );
+            <button onclick="resetSystem()" id="exit-btn" class="opacity-0 transition-opacity p-2 rounded-full bg-white/10 backdrop-blur">
+                <i class="ph-bold ph-arrow-counter-clockwise text-white"></i>
+            </button>
+        </div>
 
-        const GlassInput = ({ value, onChange, placeholder, isDark, type="text", className = "", icon: Icon }) => (
-            <div className={`flex items-center gap-2 px-3 py-3.5 rounded-2xl border transition-all ${isDark ? 'bg-[#1c1c1e]/60 border-white/10 focus-within:bg-[#1c1c1e]/90 focus-within:border-white/30' : 'bg-white/50 border-white/60 focus-within:bg-white/90 focus-within:border-blue-200 shadow-sm'} ${className}`}>
-                {Icon && <Icon size={18} className={isDark ? 'text-white/40' : 'text-gray-400'} />}
-                <input 
-                    type={type} value={value} onChange={onChange} placeholder={placeholder} 
-                    className={`bg-transparent border-none outline-none text-base font-bold w-full placeholder-opacity-40 ${isDark ? 'text-white placeholder-white' : 'text-gray-900 placeholder-gray-400'}`} 
-                />
-            </div>
-        );
-
-        const GlassInputInner = ({ value, onChange, placeholder, isDark, type="text", className = "", icon: Icon }) => (
-             <div className={`flex items-center gap-2 px-3 py-3.5 rounded-2xl border transition-all ${isDark ? 'bg-[#1c1c1e]/60 border-white/10 focus-within:bg-[#1c1c1e]/90 focus-within:border-white/30' : 'bg-white/50 border-white/60 focus-within:bg-white/90 focus-within:border-blue-200 shadow-sm'} ${className}`}>
-                {Icon && <Icon size={18} className={isDark ? 'text-white/40' : 'text-gray-400'} />}
-                <input type={type} value={value} onChange={onChange} placeholder={placeholder} className={`bg-transparent border-none outline-none text-base font-bold w-full placeholder-opacity-40 ${isDark ? 'text-white placeholder-white' : 'text-gray-900 placeholder-gray-400'}`} />
-            </div>
-        );
-
-        const CustomDropdown = ({ options, value, onChange, placeholder, isDark }) => {
-            const [isOpen, setIsOpen] = useState(false);
-            const selected = options.find(o => o.id === value);
-            return (
-                <div className="relative w-full">
-                    <button onClick={() => setIsOpen(!isOpen)} className={`w-full flex items-center justify-between px-3 py-3.5 rounded-2xl border transition-all ${isDark ? 'bg-[#1c1c1e]/60 border-white/20 text-white hover:bg-[#1c1c1e]/90' : 'bg-white/50 border-white/60 text-gray-800 hover:bg-white/90 shadow-sm'}`}>
-                        <span className="truncate text-sm font-bold">{selected ? selected.name : placeholder}</span><ChevronDown size={14} className="opacity-50"/>
-                    </button>
-                    {isOpen && (
-                        <React.Fragment>
-                            <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)}/>
-                            <div className={`absolute top-full mt-1 left-0 w-full z-50 rounded-2xl shadow-xl border overflow-hidden max-h-48 overflow-y-auto no-scrollbar animate-slideDown backdrop-blur-xl ${isDark ? 'bg-gray-900/95 border-gray-700' : 'bg-white/95 border-white/50'}`}>
-                                {options.map(opt => (
-                                    <button key={opt.id} onClick={() => { onChange(opt.id); setIsOpen(false); }} className={`w-full text-left px-3 py-3 text-sm font-bold border-b last:border-0 transition-colors ${isDark ? 'border-white/5 hover:bg-white/10 text-gray-300' : 'border-gray-100 hover:bg-gray-50 text-gray-600'} ${value === opt.id ? (isDark ? 'bg-white/20 text-white' : 'bg-blue-50 text-blue-600') : ''}`}>
-                                        {opt.name}
-                                    </button>
-                                ))}
-                            </div>
-                        </React.Fragment>
-                    )}
+        <!-- 上半部 -->
+        <div class="top-section">
+            <!-- 待機 NFC 提示 -->
+            <div class="nfc-prompt" id="nfc-prompt-area">
+                <div class="pulse-ring" id="scanner-ring">
+                    <i class="ph-duotone ph-broadcast text-6xl text-indigo-300"></i>
                 </div>
-            );
-        };
-
-        const EditModal = ({ isOpen, type, data, onClose, onSave, onDelete, t, isDark, locations, rooms }) => {
-            if (!isOpen) return null;
-            const [formData, setFormData] = useState({ 
-                name: '', 
-                icon: '📦', 
-                quantity: 1, 
-                price: '', 
-                expiryDate: '', 
-                entryDate: new Date().toISOString().split('T')[0], // Default to today
-                tags: '', 
-                locationId: '', 
-                room: '', 
-                ...data 
-            });
-            
-            useEffect(() => {
-                if (Array.isArray(data.tags)) {
-                    setFormData(prev => ({ ...prev, tags: data.tags.join(' ') }));
-                }
-            }, [data]);
-
-            const handleSave = () => {
-                const payload = { ...formData };
-                if (type === 'item' && typeof payload.tags === 'string') {
-                    payload.tags = payload.tags.split(' ').filter(t => t.trim() !== '');
-                }
-                onSave(payload);
-            };
-
-            const safeLocations = locations || [];
-            const safeRooms = rooms || [];
-
-            return (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-fadeIn"> 
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-                    <div className={`relative w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-scaleIn border backdrop-blur-xl ${isDark ? 'bg-[#1c1c1e]/95 border-white/10 text-white' : 'bg-white/95 border-white/50 text-gray-900'}`}> 
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-xl font-black">{data.id ? t.edit : t.add_new} {t[`fab_${type}`]}</h3>
-                            <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-500/10"><X size={20}/></button>
-                        </div>
-                        <div className="space-y-4">
-                            <div className="flex gap-3">
-                                <div className="w-16"><GlassInput value={formData.icon} onChange={e => setFormData({...formData, icon: e.target.value})} isDark={isDark} className="text-center text-2xl" placeholder="Icon"/></div>
-                                <GlassInput value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} isDark={isDark} placeholder={t.name} className="flex-1"/>
-                            </div>
-                            
-                            {type === 'item' && (
-                                <CustomDropdown isDark={isDark} options={safeLocations} value={formData.locationId} onChange={val => setFormData({...formData, locationId: val})} placeholder={t.select_location}/>
-                            )}
-                            {type === 'location' && (
-                                <CustomDropdown isDark={isDark} options={safeRooms} value={formData.room} onChange={val => setFormData({...formData, room: val})} placeholder={t.select_room}/>
-                            )}
-
-                            {type === 'item' && (
-                                <React.Fragment>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <GlassInput type="number" icon={Box} value={formData.quantity} onChange={e => setFormData({...formData, quantity: e.target.value})} isDark={isDark} placeholder={t.qty} />
-                                        <GlassInput icon={Hash} value={formData.tags} onChange={e => setFormData({...formData, tags: e.target.value})} isDark={isDark} placeholder={t.tags || "Tags"} />
-                                        
-                                        <div className="col-span-1">
-                                            <label className={`text-xs ml-2 font-bold mb-1 block opacity-50`}>{t.entry_date}</label>
-                                            <GlassInput type="date" icon={Calendar} value={formData.entryDate} onChange={e => setFormData({...formData, entryDate: e.target.value})} isDark={isDark} />
-                                        </div>
-                                        <div className="col-span-1">
-                                            <label className={`text-xs ml-2 font-bold mb-1 block opacity-50`}>{t.expiry}</label>
-                                            <GlassInput type="date" icon={AlertTriangle} value={formData.expiryDate} onChange={e => setFormData({...formData, expiryDate: e.target.value})} isDark={isDark} />
-                                        </div>
-                                    </div>
-                                </React.Fragment>
-                            )}
-                            <button onClick={handleSave} className={`w-full py-4 rounded-2xl font-bold text-lg shadow-lg active:scale-95 transition-all ${isDark ? 'bg-white text-black' : 'bg-black text-white'}`}>{t.confirm}</button>
-                            {data.id && <button onClick={() => onDelete(data.id)} className="w-full py-3 text-red-500 font-bold text-sm hover:bg-red-500/10 rounded-xl transition-colors">{t.delete}</button>}
-                        </div>
-                    </div>
-                </div>
-            );
-        };
-
-        const ItemCard = ({ item, locations, isDark, t, onEdit, onUpdateQty, onToggleTakeOut }) => {
-            return (
-                <div 
-                    onClick={() => onEdit(item)} 
-                    className={`flex items-center justify-between p-3 rounded-2xl border transition-all cursor-pointer active:scale-95 ${isDark ? 'bg-white/5 border-white/5 hover:bg-white/10' : 'bg-white/60 border-white/40 shadow-sm hover:bg-white/80'} ${item.isTakenOut ? 'opacity-60 grayscale' : ''}`}
-                >
-                    <div className="flex items-center gap-3 min-w-0">
-                        <span className="text-xl flex-shrink-0">{item.icon}</span>
-                        <div className="truncate">
-                            <div className="font-bold text-sm truncate flex items-center gap-2">
-                                {item.name}
-                                {item.isTakenOut && <span className="text-[10px] bg-yellow-500/20 text-yellow-500 px-1.5 py-0.5 rounded-md">{t.taken_out}</span>}
-                            </div>
-                            <div className="text-[10px] opacity-50 truncate flex items-center gap-1">
-                                <MapPin size={10}/> {locations.find(l=>l.id===item.locationId)?.name}
-                                {item.tags && item.tags.length > 0 && <span className="ml-1 text-blue-500">#{item.tags[0]}</span>}
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                        <div className={`flex items-center gap-1 px-2 py-0.5 rounded-lg ${isDark?'bg-black/30':'bg-white/50'}`}>
-                            <button onClick={(e)=>{e.stopPropagation(); onUpdateQty(item, -1)}} className="p-1 hover:text-red-500"><Minus size={12}/></button>
-                            <span className="text-xs font-bold w-4 text-center">{item.quantity||0}</span>
-                            <button onClick={(e)=>{e.stopPropagation(); onUpdateQty(item, 1)}} className="p-1 hover:text-green-500"><Plus size={12}/></button>
-                        </div>
-                        <button 
-                            onClick={(e) => {e.stopPropagation(); onToggleTakeOut(item)}} 
-                            className={`p-2 rounded-xl transition-colors ${item.isTakenOut ? 'bg-yellow-500/20 text-yellow-500' : (isDark ? 'hover:bg-white/10' : 'hover:bg-black/5')}`}
-                        >
-                            {item.isTakenOut ? <CornerRightDown size={16} /> : <ArrowUpRight size={16} />}
-                        </button>
-                    </div>
-                </div>
-            );
-        };
-
-        const LocationDetailModal = ({ location, items, locations, onClose, onEdit, onUpdateQty, onToggleTakeOut, isDark, t }) => {
-            if (!location) return null;
-            const locItems = items.filter(i => i.locationId === location.id);
-            const [showQR, setShowQR] = useState(false);
-            const [viewMode, setViewMode] = useState('list'); // 'list' or 'grid'
-
-            return (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 animate-fadeIn">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-                    <div className={`relative w-full max-w-sm max-h-[70vh] flex flex-col rounded-3xl shadow-2xl animate-scaleIn border backdrop-blur-xl ${isDark ? 'bg-gray-900/90 border-gray-700 text-white' : 'bg-white/90 border-white/50 text-gray-900'}`}>
-                        <div className="p-6 border-b border-white/10 flex justify-between items-center shrink-0">
-                            <div className="flex items-center gap-3"><span className="text-3xl">{location.icon}</span><div><h3 className="text-xl font-black">{location.name}</h3><p className="text-xs opacity-50">{locItems.length} {t.items_stored}</p></div></div>
-                            <div className="flex gap-2">
-                                <button onClick={() => setViewMode(viewMode === 'list' ? 'grid' : 'list')} className={`p-2 rounded-full ${isDark?'hover:bg-white/10':'hover:bg-black/5'}`}>{viewMode === 'list' ? <Grid3X3 size={20}/> : <List size={20}/>}</button>
-                                <button onClick={() => setShowQR(!showQR)} className={`p-2 rounded-full ${isDark?'hover:bg-white/10 text-white':'hover:bg-black/5 text-black'}`}><QrCode size={20}/></button>
-                                <button onClick={onClose} className={`p-2 rounded-full ${isDark?'hover:bg-white/10':'hover:bg-black/5'}`}><X size={20}/></button>
-                            </div>
-                        </div>
-                        
-                        {showQR ? (
-                            <div className="p-8 flex flex-col items-center justify-center bg-white m-4 rounded-2xl">
-                                <QRCode value={location.id} size={150} />
-                                <p className="mt-4 text-xs font-bold text-gray-500 uppercase tracking-widest">{t.print_hint}</p>
-                            </div>
-                        ) : (
-                            <div className="overflow-y-auto p-4 space-y-2 no-scrollbar">
-                                {locItems.length > 0 ? (
-                                    viewMode === 'list' ? (
-                                        <div className="space-y-2">
-                                            {locItems.map(item => (
-                                                <ItemCard 
-                                                    key={item.id} item={item} locations={locations} isDark={isDark} t={t}
-                                                    onEdit={onEdit} onUpdateQty={onUpdateQty} onToggleTakeOut={onToggleTakeOut}
-                                                />
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <div className="grid grid-cols-3 gap-3">
-                                            {locItems.map(item => (
-                                                <div key={item.id} onClick={() => onEdit(item)} className={`aspect-square flex flex-col items-center justify-center p-2 rounded-2xl border cursor-pointer active:scale-95 ${isDark?'bg-white/5 border-white/5':'bg-white/50 border-white/40'}`}>
-                                                    <span className="text-2xl mb-1">{item.icon}</span>
-                                                    <span className="text-[10px] font-bold truncate w-full text-center">{item.name}</span>
-                                                    <span className="text-[9px] opacity-50">x{item.quantity}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )
-                                ) : <div className="text-center py-8 opacity-40 text-sm">{t.empty_room}</div>}
-                            </div>
-                        )}
-                    </div>
-                </div>
-            );
-        };
-
-        const ProfileModal = ({ user, onClose, onLogout, t, isDark, config, setConfig }) => {
-            if (!user) return null;
-            return (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 animate-fadeIn">
-                    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-                    <div className={`relative w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-scaleIn border backdrop-blur-xl ${isDark ? 'bg-gray-900/90 border-gray-700 text-white' : 'bg-white/90 border-white/50 text-gray-900'}`}>
-                        <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10"><X size={20}/></button>
-                        <div className="flex flex-col items-center gap-4 mb-6">
-                            <div className="w-20 h-20 rounded-full border-4 border-white shadow-lg overflow-hidden"><img src={user.photoURL} className="w-full h-full object-cover"/></div>
-                            <div className="text-center"><h2 className="text-xl font-black">{user.displayName || 'User'}</h2><p className="text-xs opacity-50">{user.email}</p></div>
-                        </div>
-                        <div className="space-y-4">
-                            <div>
-                                <div className="text-xs font-bold opacity-50 uppercase mb-2 pl-1">{t.appearance}</div>
-                                <div className={`p-1 rounded-2xl grid grid-cols-2 gap-1 ${isDark ? 'bg-black/20' : 'bg-gray-100'}`}><button onClick={() => setConfig({...config, mode: 'light'})} className={`py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${config.mode === 'light' ? 'bg-white shadow-sm text-black' : 'opacity-50'}`}><Sun size={14}/> Light</button><button onClick={() => setConfig({...config, mode: 'dark'})} className={`py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${config.mode === 'dark' ? 'bg-gray-700 shadow-sm text-white' : 'opacity-50'}`}><Moon size={14}/> Dark</button></div>
-                            </div>
-                            <div>
-                                <div className="text-xs font-bold opacity-50 uppercase mb-2 pl-1">{t.theme_color}</div>
-                                <div className="flex justify-between px-2">{Object.keys(THEME_COLORS).map(key => (<button key={key} onClick={() => setConfig({...config, color: key})} className={`w-8 h-8 rounded-full flex items-center justify-center transition-transform ${THEME_COLORS[key].blob.replace('bg-', 'bg-').replace('-300', '-500')} ${config.color === key ? 'scale-110 ring-2 ring-offset-2 ' + (isDark ? 'ring-offset-black' : 'ring-offset-white') : 'opacity-50'}`}>{config.color === key && <Check size={14} className="text-white"/>}</button>))}</div>
-                            </div>
-                            <div>
-                                <div className="text-xs font-bold opacity-50 uppercase mb-2 pl-1">{t.language}</div>
-                                <div className={`flex flex-col rounded-2xl overflow-hidden ${isDark ? 'bg-black/20' : 'bg-gray-100'}`}>
-                                    {['zh-TW', 'zh-CN', 'en'].map(lang => (<button key={lang} onClick={() => setConfig({...config, lang})} className={`p-3 text-xs font-bold flex justify-between hover:bg-black/5 dark:hover:bg-white/5`}><span>{lang === 'zh-TW' ? '繁體' : lang === 'zh-CN' ? '简体' : 'English'}</span>{config.lang === lang && <Check size={14} />}</button>))}
-                                </div>
-                            </div>
-                        </div>
-                        <button onClick={onLogout} className="w-full py-3.5 bg-red-500/10 text-red-500 font-bold rounded-2xl text-sm mt-6 hover:bg-red-500/20 transition-colors flex items-center justify-center gap-2"><LogOut size={16}/> {t.logout}</button>
-                    </div>
-                </div>
-            );
-        };
-
-        const IconPicker = ({ selectedIcon, onSelect, onClose, isDark }) => {
-            const [activeCategory, setActiveCategory] = useState("常用");
-            const EMOJI_CATEGORIES = { "常用": ["📦", "🧥", "✏️", "🗄️"], "家具": ["🛏️", "🛋️", "🪑"], "3C": ["💻", "📱", "📷"], "食物": ["🍎", "☕", "🍷"] };
-            return (
-                <div className={`absolute top-full left-0 mt-2 z-50 w-full backdrop-blur-xl border shadow-xl rounded-2xl overflow-hidden animate-slideDown origin-top ${isDark ? 'bg-gray-800/95 border-gray-700' : 'bg-white/95 border-gray-200'}`}>
-                    <div className={`flex overflow-x-auto px-4 py-2 gap-2 no-scrollbar border-b ${isDark ? 'border-gray-700' : 'border-gray-100'}`}>
-                        {Object.keys(EMOJI_CATEGORIES).map(cat => (
-                            <button key={cat} onClick={(e) => { e.preventDefault(); setActiveCategory(cat); }} className={`px-3 py-1 rounded-full text-[10px] font-bold transition-all ${activeCategory === cat ? (isDark ? 'bg-white text-black' : 'bg-black text-white') : (isDark ? 'bg-gray-700 text-gray-400' : 'bg-gray-100 text-gray-500')}`}>
-                                {cat}
-                            </button>
-                        ))}
-                    </div>
-                    <div className="p-3 grid grid-cols-6 gap-2 max-h-40 overflow-y-auto">
-                        {EMOJI_CATEGORIES[activeCategory].map((emoji, idx) => (
-                            <button key={idx} onClick={(e) => { e.preventDefault(); onSelect(emoji); onClose(); }} className={`aspect-square flex items-center justify-center text-xl rounded-xl transition-all ${selectedIcon === emoji ? 'bg-blue-500 text-white scale-105' : (isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-100')}`}>
-                                {emoji}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-            );
-        };
-        
-        const ScannerModal = ({ isOpen, onClose, onScan, isDark, t }) => {
-            const scannerRef = useRef(null);
-            useEffect(() => {
-                if (isOpen) {
-                    const timer = setTimeout(() => {
-                         if (!window.Html5QrcodeScanner) { console.error("Scanner lib not loaded"); return; }
-                        if (scannerRef.current) return; 
-                        const scanner = new window.Html5QrcodeScanner("reader", { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 }, false);
-                        scanner.render((decodedText) => { onScan(decodedText); onClose(); }, (err) => {});
-                        scannerRef.current = scanner;
-                    }, 300);
-                    return () => { clearTimeout(timer); if (scannerRef.current) { scannerRef.current.clear().catch(console.error); scannerRef.current = null; } };
-                }
-            }, [isOpen]);
-            if (!isOpen) return null;
-            return (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-fadeIn">
-                    <div className="absolute inset-0 bg-black/90 backdrop-blur-sm" onClick={onClose} />
-                    <div className={`relative w-full max-w-sm rounded-3xl p-4 shadow-2xl animate-scaleIn border overflow-hidden ${isDark ? 'bg-gray-900 border-gray-700' : 'bg-white border-white'}`}>
-                        <div className="flex justify-between items-center mb-4 px-2"><h3 className={`font-bold ${isDark?'text-white':'text-black'}`}>{t.scan_btn}</h3><button onClick={onClose}><X size={20} className={isDark?'text-white':'text-black'}/></button></div>
-                        <div id="reader" className="rounded-xl overflow-hidden bg-black min-h-[300px]"></div>
-                        <p className="text-center text-xs opacity-50 mt-4">{t.scan_hint}</p>
-                    </div>
-                </div>
-            );
-        };
-
-        function App() {
-            const [user, setUser] = useState(null);
-            const [authLoading, setAuthLoading] = useState(true); 
-            const [onboardingStep, setOnboardingStep] = useState('welcome');
-            
-            // UI State
-            const [activeTab, setActiveTab] = useState('home');
-            const [config, setConfig] = useState(() => JSON.parse(localStorage.getItem('my_room_config')) || { lang: 'zh-TW', mode: 'light', color: 'blue' });
-            const [toast, setToast] = useState(null);
-            
-            // Data
-            const [items, setItems] = useState([]);
-            const [locations, setLocations] = useState([]);
-            const [rooms, setRooms] = useState([]);
-            const [currentRoom, setCurrentRoom] = useState({ id: 'default', name: 'My Room' });
-
-            // Modal States
-            const [editModal, setEditModal] = useState({ isOpen: false, type: 'item', data: {} });
-            const [showProfile, setShowProfile] = useState(false);
-            const [showRoomMenu, setShowRoomMenu] = useState(false);
-            const [showScanner, setShowScanner] = useState(false);
-            const [detailLocation, setDetailLocation] = useState(null);
-
-            // Auth Inputs
-            const [authMode, setAuthMode] = useState('login'); 
-            const [authInputs, setAuthInputs] = useState({ email: '', password: '', username: '' });
-            const [authError, setAuthError] = useState('');
-
-            // Home Inputs
-            const [inputValue, setInputValue] = useState('');
-            const [isInputFocused, setIsInputFocused] = useState(false);
-            const [activeIcon, setActiveIcon] = useState('📦');
-            const [showIconPicker, setShowIconPicker] = useState(false);
-            const [selectedLocationId, setSelectedLocationId] = useState(null);
-            const [isSubmitting, setIsSubmitting] = useState(false);
-            const [newRoomName, setNewRoomName] = useState('');
-
-            // Computed
-            const isDark = config.mode === 'dark';
-            const themeStyles = THEME_COLORS[config.color];
-            const t = TRANSLATIONS[config.lang] || TRANSLATIONS['zh-TW'];
-            const [randomHeadline, setRandomHeadline] = useState("");
-
-            const greetingText = useMemo(() => {
-                const h = new Date().getHours();
-                if (h < 12) return t.greeting.morning;
-                if (h < 18) return t.greeting.afternoon;
-                return t.greeting.evening;
-            }, [config.lang, t]);
-
-            const FUN_HEADLINES = {
-                'zh-TW': ["東西又找不到了？", "又有戰利品了！", "斷捨離...失敗？", "這東西要放哪？", "房間快爆炸啦！", "記憶力救星在此。", "幫它找個家吧。", "別再亂丟了喔。"],
-                'zh-CN': ["东西又找不到了？", "又有战利品了！", "断舍离...失败？", "这东西要放哪？", "房间快爆炸啦！", "记忆力救星在此。", "帮它找个家吧。", "别再乱丢了喔。"],
-                'en': ["Lost something again?", "New loot alert!", "Decluttering failed?", "Where does this go?", "Room exploding soon!", "Memory saver here.", "Give it a home.", "Don't throw it!"]
-            };
-
-            useEffect(() => { 
-                localStorage.setItem('my_room_config', JSON.stringify(config)); 
-                const headlines = FUN_HEADLINES[config.lang] || FUN_HEADLINES['zh-TW'];
-                setRandomHeadline(headlines[Math.floor(Math.random() * headlines.length)]);
-            }, [config]);
-
-            useEffect(() => { onAuthStateChanged(auth, (u) => { setUser(u); setAuthLoading(false); }); }, []);
-
-            useEffect(() => {
-                if (user) {
-                    const savedRoomId = localStorage.getItem(`last_room_${user.uid}`);
-                    if (savedRoomId && rooms.length > 0) {
-                        const r = rooms.find(room => room.id === savedRoomId);
-                        if (r) setCurrentRoom(r);
-                    }
-                }
-            }, [user, rooms]);
-
-            useEffect(() => {
-                if (!user) return;
-                const unsubs = [
-                    onSnapshot(query(collection(db, 'artifacts', appId, 'users', user.uid, 'rooms'), orderBy('createdAt', 'asc')), s => setRooms([{id:'default', name: t.my_room}, ...s.docs.map(d => ({id:d.id, ...d.data()}))])),
-                    onSnapshot(query(collection(db, 'artifacts', appId, 'users', user.uid, 'locations'), orderBy('createdAt', 'asc')), s => setLocations(s.docs.map(d => ({id:d.id, ...d.data()})))),
-                    onSnapshot(query(collection(db, 'artifacts', appId, 'users', user.uid, 'items'), orderBy('createdAt', 'desc')), s => setItems(s.docs.map(d => ({id:d.id, ...d.data()}))))
-                ];
-                return () => unsubs.forEach(u => u());
-            }, [user, t.my_room]);
-
-            const showToast = (msg) => setToast(msg);
-            
-            const handleSave = async (data) => {
-                const { id, ...payload } = data;
-                const type = editModal.type;
-                const colName = type === 'room' ? 'rooms' : (type === 'location' ? 'locations' : 'items');
-                try {
-                    if (id) {
-                        await updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, colName, id), payload);
-                        showToast(t.toast_updated);
-                    } else {
-                        if (type === 'location') payload.room = currentRoom.id;
-                        // Default location fallback
-                        if (type === 'item' && !payload.locationId) {
-                             const defaultLoc = detailLocation ? detailLocation.id : (locations[0]?.id || '');
-                             payload.locationId = defaultLoc;
-                        }
-                        await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, colName), { ...payload, createdAt: serverTimestamp() });
-                        showToast(t.toast_added);
-                    }
-                    setEditModal({ ...editModal, isOpen: false });
-                } catch (e) { console.error(e); }
-            };
-
-            const handleDelete = async (id) => {
-                const type = editModal.type;
-                const colName = type === 'room' ? 'rooms' : (type === 'location' ? 'locations' : 'items');
-                if (confirm(t.confirm_delete)) {
-                    await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, colName, id));
-                    setEditModal({ ...editModal, isOpen: false });
-                    if(type === 'location') setDetailLocation(null); 
-                    showToast(t.toast_deleted);
-                }
-            };
-
-            const handleUpdateQty = async (item, delta) => {
-                const newQty = Math.max(0, (parseInt(item.quantity) || 0) + delta);
-                try { await updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'items', item.id), { quantity: newQty }); } catch(e) { console.error(e); }
-            };
-
-            const handleToggleTakeOut = async (item) => {
-                const newState = !item.isTakenOut;
-                try { await updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'items', item.id), { isTakenOut: newState }); } catch(e) { console.error(e); }
-            };
-
-            const handleDeleteItem = async (id) => {
-                if (confirm(t.confirm_delete)) {
-                     await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'items', id));
-                     showToast(t.toast_deleted);
-                }
-            };
-            
-            const handleAddRoom = async () => {
-                if (!newRoomName.trim()) return;
-                const res = await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'rooms'), { name: newRoomName, createdAt: serverTimestamp() });
-                setNewRoomName(''); setCurrentRoom({id: res.id, name: newRoomName}); localStorage.setItem(`last_room_${user.uid}`, res.id); setShowRoomMenu(false);
-            };
-            
-            const handleScan = (code) => {
-                const foundLoc = locations.find(l => l.id === code);
-                if (foundLoc) { setDetailLocation(foundLoc); setShowScanner(false); return; }
-                const foundItem = items.find(i => i.id === code); // Assuming QR stores ID for now
-                if (foundItem) { setInputValue(foundItem.name); setActiveTab('home'); setShowScanner(false); return; }
+                <h2 class="text-2xl font-bold mb-2">準備拍卡</h2>
+                <p class="text-gray-400 text-sm mb-8" id="nfc-status-text">點擊下方按鈕開始掃描</p>
                 
-                if (confirm(`${t.not_found_create} (${code})`)) {
-                    setEditModal({ isOpen: true, type: 'item', data: { tags: [code] } }); // Add code as tag for new item
-                    setShowScanner(false);
-                }
-            };
+                <button onclick="startNFCRead()" id="scan-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-4 rounded-full font-bold shadow-lg shadow-indigo-500/30 active:scale-95 transition-transform flex items-center gap-2 mx-auto">
+                    <i class="ph-bold ph-scan"></i> 啟動 NFC 掃描
+                </button>
+                <p class="text-xs text-gray-500 mt-4">請將卡片緊貼手機背面 NFC 區域</p>
+            </div>
 
-            const handleAuth = async (e) => {
-                e.preventDefault(); setAuthError('');
-                try {
-                    if (authMode === 'register') {
-                        const res = await createUserWithEmailAndPassword(auth, authInputs.email, authInputs.password);
-                        await updateProfile(res.user, { displayName: authInputs.username });
-                    } else { await signInWithEmailAndPassword(auth, authInputs.email, authInputs.password); }
-                } catch (err) { setAuthError(err.message); }
-            };
-            
-            const handleAddItem = async () => {
-                if (!inputValue.trim() || !selectedLocationId) return;
-                setIsSubmitting(true);
-                try {
-                    await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'items'), { 
-                        name: inputValue, locationId: selectedLocationId, icon: activeIcon, 
-                        quantity: 1, price: 0, createdAt: serverTimestamp(),
-                        entryDate: new Date().toISOString().split('T')[0] // Auto entry date
-                    });
-                    setInputValue(''); setIsSubmitting(false); showToast(t.toast_added);
-                } catch(e) { console.error(e); }
-            };
-            
-            const handleGoogleLogin = async () => { try { await signInWithPopup(auth, provider); } catch (e) { console.error(e); } };
-
-            const roomLocations = useMemo(() => locations.filter(l => l.room === currentRoom.id || (!l.room && currentRoom.id === 'default')), [locations, currentRoom]);
-            const currentItems = useMemo(() => {
-                return items; // Home shows everything
-            }, [items]);
-            const filteredHomeItems = useMemo(() => inputValue ? currentItems.filter(i => i.name.toLowerCase().includes(inputValue.toLowerCase()) || (i.tags && i.tags.some(tag => tag.toLowerCase().includes(inputValue.toLowerCase())))) : currentItems.slice(0, 10), [currentItems, inputValue]);
-            
-            const lowStockItems = useMemo(() => items.filter(i => (parseInt(i.quantity)||0) < 2), [items]);
-            const totalValue = items.reduce((acc, curr) => acc + ((parseInt(curr.quantity)||0) * (parseFloat(curr.price)||0)), 0);
-
-            const isAddMode = inputValue.length > 0 && isInputFocused;
-            
-            const currentRoomName = useMemo(() => {
-                const r = rooms.find(r => r.id === currentRoom.id);
-                return r ? r.name : t.my_room;
-            }, [rooms, currentRoom, t.my_room]);
-
-            // --- Render ---
-            if (authLoading) return <div className="h-screen w-full bg-white flex items-center justify-center"><Sparkles className="animate-spin text-gray-400"/></div>;
-
-            if (!user) {
-                // Onboarding & Login
-                return (
-                    <div className={`h-screen w-full flex items-center justify-center font-sans overflow-hidden relative transition-colors duration-500 ${isDark ? 'bg-black text-white' : 'bg-gray-50 text-gray-900'}`}>
-                        <div className={`absolute inset-0 bg-gradient-to-b opacity-40 ${themeStyles.from} to-black pointer-events-none`}/>
-                        <div className="relative z-10 p-8 w-full max-w-sm flex flex-col h-full justify-center animate-fadeIn">
-                             
-                             {/* STEP 1: WELCOME */}
-                             {onboardingStep === 'welcome' && (
-                                <div className="flex flex-col items-center text-center h-full justify-center">
-                                    <div className="text-8xl mb-6 animate-bounce-slight">🪐</div>
-                                    <h1 className="text-4xl font-black mb-2">{t.welcome_title}</h1>
-                                    <p className="opacity-60 mb-10 text-lg">{t.welcome_subtitle}</p>
-                                    
-                                    <div className="w-full space-y-4 mb-12">
-                                        {[{icon:<Edit3 size={20} className="text-white"/>,bg:'bg-blue-500',text:t.feature_1},{icon:<Search size={20} className="text-white"/>,bg:'bg-purple-500',text:t.feature_2},{icon:<LayoutGrid size={20} className="text-white"/>,bg:'bg-pink-500',text:t.feature_3}].map((f,i)=>(
-                                            <div key={i} className={`flex items-center gap-4 p-4 rounded-2xl border ${isDark?'bg-white/10 border-white/10':'bg-white/60 border-white/50 shadow-sm'}`}><div className={`p-2 rounded-lg ${f.bg}`}>{f.icon}</div><div className="font-bold">{f.text}</div></div>
-                                        ))}
-                                    </div>
-                                    <button onClick={() => setOnboardingStep('language')} className={`w-full py-4 font-bold rounded-2xl shadow-xl active:scale-95 transition-transform flex items-center justify-center gap-2 ${isDark ? 'bg-white text-black' : 'bg-black text-white'}`}>{t.login_btn} <ArrowRight size={20}/></button>
-                                    <button onClick={() => setOnboardingStep('login')} className="text-xs mt-4 opacity-50 hover:opacity-100 transition-opacity pb-0.5 border-b border-transparent hover:border-current">{t.login_hint}</button>
-                                </div>
-                             )}
-
-                             {/* STEP 2: LANGUAGE */}
-                             {onboardingStep === 'language' && (
-                                <div className="flex flex-col items-center text-center h-full justify-center animate-slideUp">
-                                    <button onClick={() => setOnboardingStep('welcome')} className="absolute top-8 left-6 p-2 rounded-full bg-white/10 hover:bg-white/20"><ArrowRight className="rotate-180"/></button>
-                                    <div className="text-6xl mb-6"><Globe size={64}/></div>
-                                    <h2 className="text-2xl font-bold mb-8">{t.select_lang}</h2>
-                                    <div className="w-full space-y-3">
-                                        {[{code:'zh-TW',label:'繁體中文'},{code:'zh-CN',label:'简体中文'},{code:'en',label:'English'}].map(l=>(
-                                            <button key={l.code} onClick={()=>{setConfig({...config,lang:l.code});setOnboardingStep('login');}} className={`w-full py-5 border font-bold rounded-2xl transition-all flex justify-between items-center px-6 ${isDark?'bg-white/10 hover:bg-white/20 border-white/10':'bg-white/60 hover:bg-white border-white/50 shadow-sm'}`}><span>{l.label}</span><ChevronRight size={20} className="opacity-50"/></button>
-                                        ))}
-                                    </div>
-                                </div>
-                             )}
-
-                             {/* STEP 3: LOGIN */}
-                             {onboardingStep === 'login' && (
-                                <div className="flex flex-col h-full justify-center w-full animate-slideUp">
-                                    <button onClick={() => setOnboardingStep('welcome')} className="absolute top-8 left-6 p-2 rounded-full bg-white/10 hover:bg-white/20"><ArrowRight className="rotate-180"/></button>
-                                    <div className="mb-8 text-center">
-                                        <h2 className="text-3xl font-black mb-2">{authMode === 'login' ? t.login_btn : t.register_submit}</h2>
-                                        <p className="opacity-60">{t.welcome_subtitle}</p>
-                                    </div>
-                                    
-                                    <form onSubmit={handleAuth} className="space-y-4">
-                                        {authMode === 'register' && <GlassInputInner icon={User} value={authInputs.username} onChange={e => setAuthInputs({...authInputs, username: e.target.value})} placeholder={t.username_ph} isDark={isDark}/>}
-                                        <GlassInputInner icon={Mail} value={authInputs.email} onChange={e => setAuthInputs({...authInputs, email: e.target.value})} placeholder={t.email_ph} isDark={isDark}/>
-                                        <GlassInputInner icon={Lock} type="password" value={authInputs.password} onChange={e => setAuthInputs({...authInputs, password: e.target.value})} placeholder={t.password_ph} isDark={isDark}/>
-                                        {authError && <div className="text-red-500 text-xs px-2">{authError}</div>}
-                                        <button type="submit" className={`w-full py-4 font-bold rounded-2xl shadow-xl mt-4 active:scale-95 transition-transform ${isDark?'bg-white text-black':'bg-black text-white'}`}>{authMode === 'login' ? t.login_btn : t.register_submit}</button>
-                                    </form>
-
-                                    <div className="mt-6 flex flex-col items-center gap-4">
-                                        <button onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')} className="text-sm opacity-60 hover:opacity-100 transition-opacity">{authMode === 'login' ? t.switch_to_register : t.switch_to_login}</button>
-                                        <div className="w-full border-t border-white/10"></div>
-                                        <button onClick={async () => {try{await signInWithPopup(auth,provider)}catch(e){}}} className={`w-full py-3 border rounded-xl text-sm font-bold flex items-center justify-center gap-2 ${isDark?'border-white/20 hover:bg-white/10':'border-black/10 hover:bg-black/5'}`}>
-                                            <svg className="w-5 h-5" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg> Google Login
-                                        </button>
-                                    </div>
-                                </div>
-                             )}
-                        </div>
-                    </div>
-                );
-            }
-
-            return (
-                <div className={`h-screen w-full flex justify-center font-sans overflow-hidden transition-colors duration-500 ${isDark ? 'bg-black text-white' : 'bg-gray-50 text-gray-900'}`}>
-                    <div className={`w-full max-w-md h-full flex flex-col relative shadow-2xl ${isDark ? 'bg-[#0a0a0a]' : 'bg-[#FAFAFA]'}`}>
-                        <AuroraBackground isDark={isDark} colorTheme={config.color} />
-                        {toast && <Toast message={toast} onClose={() => setToast(null)} />}
-
-                        {/* Top Bar (Unified) */}
-                        <div className={`absolute top-0 left-0 right-0 pt-12 pb-4 px-6 flex justify-between items-center z-50 transition-colors duration-300`}>
-                             <button onClick={()=>setShowRoomMenu(!showRoomMenu)} className={`flex items-center gap-1 font-black text-xl tracking-tighter hover:opacity-70 transition-opacity ${isDark?'text-white':'text-gray-900'}`}>{currentRoomName} <ChevronDown size={16}/></button>
-                             <div className="flex gap-4">
-                                <button onClick={() => setShowScanner(true)} className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10"><ScanLine size={20}/></button>
-                                <button onClick={() => setShowProfile(true)} className="w-10 h-10 rounded-full border-2 border-white/20 shadow-md overflow-hidden"><img src={user.photoURL} className="w-full h-full object-cover"/></button>
-                             </div>
-                        </div>
-
-                        {/* Room Menu */}
-                        {showRoomMenu && (
-                            <React.Fragment>
-                                <div className="fixed inset-0 z-40" onClick={() => setShowRoomMenu(false)}/>
-                                <div className={`absolute top-24 left-6 z-[60] w-48 rounded-2xl shadow-xl border overflow-hidden animate-slideDown backdrop-blur-xl ${isDark ? 'bg-gray-900/90 border-gray-700' : 'bg-white/90 border-gray-200'}`}>
-                                    <div className="max-h-60 overflow-y-auto no-scrollbar p-2">
-                                        {rooms.map(r => (
-                                            <button key={r.id} onClick={() => { setCurrentRoom(r); localStorage.setItem(`last_room_${user.uid}`, r.id); setShowRoomMenu(false); }} className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold flex justify-between ${currentRoom.id === r.id ? (isDark ? 'bg-white text-black' : 'bg-black text-white') : (isDark ? 'text-gray-300 hover:bg-white/10' : 'text-gray-600 hover:bg-gray-100')}`}>
-                                                {r.name} {currentRoom.id === r.id && <Check size={12}/>}
-                                            </button>
-                                        ))}
-                                    </div>
-                                    <div className={`p-2 border-t ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
-                                        <GlassInput icon={Plus} value={newRoomName} onChange={(e) => setNewRoomName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddRoom()} placeholder={t.add_new} isDark={isDark} className="text-xs py-1.5"/>
-                                    </div>
-                                </div>
-                            </React.Fragment>
-                        )}
-
-                        {/* CONTENT AREA */}
-                        <div className="flex-1 overflow-y-auto no-scrollbar pt-28 px-5 pb-28 relative z-10">
-                            
-                            {/* HOME */}
-                            {activeTab === 'home' && (
-                                <div className="space-y-6 animate-slideUp">
-                                    <div className="flex gap-3 overflow-x-auto no-scrollbar">
-                                        <div className={`p-4 rounded-3xl min-w-[140px] border flex-1 ${isDark ? 'bg-white/5 border-white/10' : 'bg-white/60 border-white/60 shadow-sm'}`}>
-                                            <div className="text-xs opacity-50 font-bold mb-1">{t.items_stored}</div>
-                                            <div className="text-3xl font-black">{items.length}</div>
-                                        </div>
-                                        {lowStockItems.length > 0 && (
-                                            <div className={`p-4 rounded-3xl min-w-[140px] border flex-1 ${isDark ? 'bg-red-500/10 border-red-500/30' : 'bg-red-50 border-red-200'}`}>
-                                                <div className="text-xs text-red-500 font-bold mb-1 flex items-center gap-1"><AlertTriangle size={12}/> {t.low_stock}</div>
-                                                <div className="text-3xl font-black text-red-500">{lowStockItems.length}</div>
-                                            </div>
-                                        )}
-                                    </div>
-                                    
-                                    <div className="mb-2">
-                                        <div className={`text-xs font-bold uppercase tracking-wider mb-1 flex items-center gap-1.5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}><Sparkles size={12} className={themeStyles.text} /> {greetingText}</div>
-                                        <h1 className={`text-3xl font-black tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}><span className={`text-transparent bg-clip-text bg-gradient-to-r ${themeStyles.from} ${themeStyles.to}`}>{randomHeadline}</span></h1>
-                                    </div>
-                                    
-                                    {/* Magic Input */}
-                                    <div className={`relative backdrop-blur-xl border transition-all duration-300 ease-spring ${isAddMode ? `rounded-3xl shadow-2xl ring-1 ${themeStyles.border} ${isDark ? 'bg-[#1c1c1e]/60' : 'bg-white/90'}` : `rounded-2xl shadow-sm ${isDark ? 'bg-[#1c1c1e]/60' : 'bg-white/40'}`} ${isDark ? 'border-white/20' : 'border-white/60'}`}>
-                                        <div className="flex items-center p-2">
-                                            <button onClick={() => setShowIconPicker(!showIconPicker)} className={`w-11 h-11 rounded-xl flex items-center justify-center text-xl transition-colors shrink-0 border ${isDark ? 'border-white/10 bg-white/5 text-white hover:bg-white/10' : 'border-white/50 bg-white/50 text-gray-900 hover:bg-white/80'}`}>{activeIcon}</button>
-                                            <input type="text" value={inputValue} onFocus={() => setIsInputFocused(true)} onChange={(e) => setInputValue(e.target.value)} placeholder={t.search_placeholder} className={`flex-1 bg-transparent border-none text-base font-bold px-3 focus:ring-0 ${isDark ? 'text-white placeholder-white/30' : 'text-gray-900 placeholder-gray-500'}`} />
-                                            {inputValue && <button onClick={() => {setInputValue(''); setIsInputFocused(false);}} className={`p-2 rounded-full ${isDark ? 'text-white/50 hover:bg-white/10' : 'text-gray-500 hover:bg-black/5'}`}><X size={14} /></button>}
-                                        </div>
-                                        {showIconPicker && <IconPicker selectedIcon={activeIcon} onSelect={setActiveIcon} onClose={() => setShowIconPicker(false)} isDark={isDark} />}
-                                        <div className={`overflow-hidden transition-all duration-500 ease-in-out ${isAddMode ? 'max-h-64 opacity-100 border-t ' + (isDark ? 'border-white/10' : 'border-black/5') : 'max-h-0 opacity-0'}`}>
-                                            <div className="p-3">
-                                                <div className="text-xs font-bold opacity-50 mb-2 pl-1">{t.select_location}</div>
-                                                <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-                                                    {roomLocations.map(loc => (<button key={loc.id} onClick={() => setSelectedLocationId(loc.id)} className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border transition-all shrink-0 ${selectedLocationId === loc.id ? `${themeStyles.bg} text-white border-transparent shadow-md scale-105` : `${isDark ? 'bg-white/10 border-white/20 text-gray-300' : 'bg-white border-gray-200 text-gray-600'}`}`}><span>{loc.icon}</span><span className="font-bold text-xs">{loc.name}</span></button>))}
-                                                </div>
-                                                {selectedLocationId && <button onClick={handleAddItem} disabled={isSubmitting} className={`w-full mt-2 bg-gradient-to-r ${themeStyles.from} ${themeStyles.to} text-white font-bold py-3 rounded-xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 animate-bounce-slight`}>{isSubmitting ? <Sparkles size={16} className="animate-spin"/> : <Save size={16}/>} {t.save_btn}</button>}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Items List */}
-                                    <div>
-                                        <h3 className="text-sm font-bold opacity-50 mb-3 ml-1">{t.items_stored}</h3>
-                                        <div className="space-y-2">
-                                            {filteredHomeItems.map(item => (
-                                                <ItemCard 
-                                                    key={item.id} item={item} locations={locations} isDark={isDark} t={t}
-                                                    onEdit={() => setEditModal({ isOpen: true, type: 'item', data: item })}
-                                                    onUpdateQty={handleUpdateQty}
-                                                    onToggleTakeOut={handleToggleTakeOut}
-                                                />
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* SPACE */}
-                            {activeTab === 'space' && (
-                                <div className="space-y-4 animate-fadeIn">
-                                    <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
-                                        {rooms.map(r => (
-                                            <button key={r.id} onClick={() => setCurrentRoom(r)} className={`px-5 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all ${currentRoom.id === r.id ? (isDark ? 'bg-white text-black' : 'bg-black text-white') : (isDark ? 'bg-white/10 text-gray-400' : 'bg-gray-200 text-gray-500')}`}>{r.name}</button>
-                                        ))}
-                                        <button onClick={() => { setEditModal({ isOpen: true, type: 'room', data: {} }); }} className={`w-8 h-8 rounded-full flex items-center justify-center ${isDark?'bg-white/10':'bg-gray-200 text-gray-500'}`}><Plus size={16}/></button>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        {roomLocations.map((loc, idx) => {
-                                            const count = items.filter(i => i.locationId === loc.id).length;
-                                            return (
-                                                <button key={loc.id} onClick={() => setDetailLocation(loc)} className={`relative group p-4 rounded-3xl border flex flex-col justify-between h-36 text-left transition-all active:scale-95 ${isDark ? 'bg-white/5 border-white/5 hover:bg-white/10' : 'bg-white/60 border-white/40 shadow-sm hover:bg-white/80'}`} style={{animationDelay: `${idx*0.05}s`}}>
-                                                    <div className="flex justify-between items-start"><span className="text-3xl">{loc.icon}</span><div className={`text-xs font-bold px-2 py-1 rounded-full ${isDark ? 'bg-white/10' : 'bg-gray-100 text-gray-500'}`}>{count}</div></div>
-                                                    <div><div className={`font-bold ${isDark ? 'text-white' : 'text-gray-800'}`}>{loc.name}</div></div>
-                                                    <div onClick={(e) => { e.stopPropagation(); setEditModal({ isOpen: true, type: 'location', data: loc }); }} className="absolute top-3 right-3 p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/10 dark:hover:bg-white/10"><MoreVertical size={16}/></div>
-                                                </button>
-                                            )
-                                        })}
-                                    </div>
-                                    {roomLocations.length === 0 && <div className="text-center py-20 opacity-30">{t.empty_room}</div>}
-                                </div>
-                            )}
-
-                            {/* PROFILE (Just Settings & Logout now) */}
-                            {/* Profile content is now mainly in the modal triggered by avatar, 
-                                but if we still need a tab, it can be removed or kept as alternative.
-                                Based on previous request, we simplified to 2 main tabs + profile modal.
-                                But keeping it consistent with the bottom nav structure.
-                            */}
-                        </div>
-
-                        {/* BOTTOM NAV */}
-                        <div className={`absolute bottom-0 left-0 right-0 px-6 pb-8 pt-4 flex justify-around items-center z-40 backdrop-blur-xl border-t transition-colors duration-300 ${isDark ? 'bg-black/80 border-white/10' : 'bg-white/80 border-black/5'}`}>
-                            {[{id:'home',icon:Home}, {id:'space',icon:FolderOpen}].map(tb => (
-                                <button key={tb.id} onClick={() => setActiveTab(tb.id)} className={`flex flex-col items-center gap-1 transition-all ${activeTab === tb.id ? (isDark ? 'text-white' : 'text-black') : 'text-gray-400 opacity-60'}`}><tb.icon size={24} strokeWidth={activeTab===tb.id?2.5:2} /></button>
-                            ))}
-                        </div>
-
-                        {/* FAB */}
-                        <FloatingActionButton onAction={(type) => setEditModal({ isOpen: true, type, data: {} })} isDark={isDark} t={t} />
-
-                        {/* Modals */}
-                        <EditModal 
-                            isOpen={editModal.isOpen} 
-                            type={editModal.type} 
-                            data={editModal.data} 
-                            onClose={() => setEditModal({...editModal, isOpen: false})} 
-                            onSave={handleSave} 
-                            onDelete={handleDelete} 
-                            t={t} 
-                            isDark={isDark}
-                            locations={locations}
-                            rooms={rooms}
-                        />
-                        
-                        {showProfile && (
-                            <ProfileModal user={user} onClose={() => setShowProfile(false)} onLogout={() => { signOut(auth); setShowProfile(false); setOnboardingStep('welcome'); }} t={t} isDark={isDark} config={config} setConfig={setConfig} />
-                        )}
-
-                        <LocationDetailModal 
-                            location={detailLocation} 
-                            items={items} 
-                            locations={locations}
-                            onClose={() => setDetailLocation(null)} 
-                            onEdit={(item) => setEditModal({ isOpen: true, type: 'item', data: item })} 
-                            onUpdateQty={handleUpdateQty}
-                            onToggleTakeOut={handleToggleTakeOut}
-                            isDark={isDark} 
-                            t={t} 
-                        />
-                        
-                        <ScannerModal isOpen={showScanner} onClose={()=>setShowScanner(false)} onScan={handleScan} isDark={isDark} t={t} />
-
-                        <div className={`absolute bottom-6 right-6 text-[10px] font-mono font-bold pointer-events-none select-none opacity-20 ${isDark ? 'text-white' : 'text-black'}`}>@colasonyt1123</div>
+            <!-- 會員卡 (讀取成功後顯示) -->
+            <div class="member-card">
+                <div class="flex justify-between items-start">
+                    <i class="ph-fill ph-crown text-3xl text-yellow-100"></i>
+                    <span class="font-mono text-xs opacity-80 bg-black/20 px-2 py-1 rounded">NFC CARD</span>
+                </div>
+                <div>
+                    <div class="text-lg font-bold tracking-widest font-mono mb-2 text-shadow" id="card-uid">UID: --</div>
+                    <div class="flex justify-between items-end">
+                        <span class="text-sm font-medium opacity-90">MEMBER</span>
+                        <span class="text-xs opacity-70">VALID</span>
                     </div>
                 </div>
-            );
+                <div class="absolute inset-0 bg-gradient-to-br from-white/40 to-transparent rounded-20 pointer-events-none"></div>
+            </div>
+
+            <!-- 餘額 -->
+            <div class="text-center mt-4 opacity-0 transition-all duration-500 translate-y-4" id="balance-area">
+                <div class="text-gray-400 text-xs uppercase tracking-widest mb-1">Card Balance</div>
+                <div class="text-4xl font-bold font-mono text-white">$<span id="balance-display">0.00</span></div>
+            </div>
+        </div>
+
+        <!-- 底部面板 -->
+        <div class="bottom-sheet">
+            <div class="w-12 h-1 bg-white/20 rounded-full mx-auto mt-3 mb-6"></div>
+            
+            <div class="px-6 mb-4">
+                <h2 class="text-xl font-bold">選擇增值金額</h2>
+                <p class="text-sm text-gray-400">寫入數據到卡片</p>
+            </div>
+
+            <div class="flex-1 overflow-y-auto pb-4">
+                <div class="amount-grid">
+                    <button onclick="selectAmount(100)" class="amount-btn group">
+                        <div class="text-2xl font-bold font-mono group-[.selected]:text-black">$100</div>
+                        <div class="text-xs text-gray-400 mt-1 group-[.selected]:text-gray-600">標準</div>
+                    </button>
+                    <button onclick="selectAmount(500)" class="amount-btn group">
+                        <div class="text-2xl font-bold font-mono group-[.selected]:text-black">$500</div>
+                        <div class="text-xs text-green-400 font-bold mt-1 group-[.selected]:text-green-600">優惠</div>
+                    </button>
+                </div>
+                <div class="px-6 mt-4">
+                    <input type="number" id="custom-input" placeholder="自定義金額" oninput="handleCustomInput()"
+                        class="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-4 text-white font-mono text-lg outline-none focus:border-indigo-500">
+                </div>
+            </div>
+
+            <div class="action-bar">
+                <button id="pay-btn" onclick="startNFCWrite()" disabled class="pay-btn">
+                    <span>請選擇金額</span>
+                </button>
+            </div>
+        </div>
+        
+        <!-- 寫入遮罩 -->
+        <div id="write-overlay" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center hidden">
+            <div class="w-24 h-24 rounded-full border-4 border-indigo-500 border-t-transparent animate-spin mb-6"></div>
+            <h2 class="text-2xl font-bold text-white mb-2">請拍卡寫入</h2>
+            <p class="text-gray-400">將卡片緊貼手機背面...</p>
+            <button onclick="cancelWrite()" class="mt-8 px-6 py-2 rounded-full border border-white/20 text-sm">取消</button>
+        </div>
+
+        <!-- 成功提示 -->
+        <div id="success-overlay" class="fixed inset-0 z-50 bg-green-600 flex flex-col items-center justify-center hidden transition-all duration-300 opacity-0">
+            <i class="ph-bold ph-check-circle text-6xl text-white mb-4"></i>
+            <h2 class="text-3xl font-bold text-white">寫入成功</h2>
+            <p class="text-white/80 mt-2">餘額已更新</p>
+        </div>
+    </div>
+
+    <script>
+        // --- 全局變量 ---
+        let ndef; // NFC Reader 對象
+        let currentBalance = 0;
+        let selectedAmt = 0;
+        let isWriting = false; // 是否處於寫入模式
+        
+        // --- UI 元素 ---
+        const container = document.getElementById('app-container');
+        const scanBtn = document.getElementById('scan-btn');
+        const statusText = document.getElementById('nfc-status-text');
+        const scannerRing = document.getElementById('scanner-ring');
+        const balanceDisplay = document.getElementById('balance-display');
+        const payBtn = document.getElementById('pay-btn');
+        const writeOverlay = document.getElementById('write-overlay');
+        const successOverlay = document.getElementById('success-overlay');
+
+        // --- 1. 啟動 NFC 讀取 (檢查餘額) ---
+        async function startNFCRead() {
+            if (!("NDEFReader" in window)) {
+                alert("抱歉，您的瀏覽器不支援 Web NFC。請使用 Android Chrome。");
+                return;
+            }
+
+            try {
+                ndef = new NDEFReader();
+                await ndef.scan();
+                
+                statusText.innerText = "正在掃描... 請拍卡";
+                statusText.classList.add("text-indigo-400", "animate-pulse");
+                scannerRing.parentElement.classList.add("scanning");
+                scanBtn.style.display = 'none'; // 隱藏按鈕
+
+                ndef.onreading = event => {
+                    const serialNumber = event.serialNumber;
+                    const message = event.message;
+                    
+                    // 讀取成功
+                    handleCardRead(serialNumber, message);
+                };
+
+                ndef.onreadingerror = () => {
+                    statusText.innerText = "讀取失敗，請重試";
+                };
+
+            } catch (error) {
+                statusText.innerText = "NFC 啟動失敗: " + error;
+                scanBtn.style.display = 'flex';
+            }
         }
 
-        const root = createRoot(document.getElementById('root'));
-        root.render(<App />);
+        // --- 2. 處理讀取到的數據 ---
+        function handleCardRead(uid, message) {
+            // 解析 NDEF 記錄中的餘額
+            let foundBalance = false;
+            
+            // 嘗試從 NDEF 記錄中尋找 JSON 數據
+            for (const record of message.records) {
+                if (record.recordType === "text") {
+                    const textDecoder = new TextDecoder(record.encoding);
+                    const text = textDecoder.decode(record.data);
+                    try {
+                        const data = JSON.parse(text);
+                        if (data.type === 'glasspay' && data.balance !== undefined) {
+                            currentBalance = parseFloat(data.balance);
+                            foundBalance = true;
+                        }
+                    } catch (e) {
+                        // 不是我們的 JSON 格式，忽略
+                    }
+                }
+            }
+
+            if (!foundBalance) {
+                // 如果是空卡或新卡，初始化餘額為 0
+                currentBalance = 0;
+                // alert("新卡片！餘額已初始化為 $0");
+            }
+
+            // 更新 UI
+            document.getElementById('card-uid').innerText = `UID: ${uid}`;
+            balanceDisplay.innerText = currentBalance.toFixed(2);
+            
+            // 切換到「已激活」視圖
+            activateUI();
+            
+            // 震動反饋
+            if(navigator.vibrate) navigator.vibrate(100);
+        }
+
+        function activateUI() {
+            container.classList.add('active');
+            document.getElementById('exit-btn').classList.remove('opacity-0');
+            
+            // 顯示餘額區域
+            const balArea = document.getElementById('balance-area');
+            balArea.classList.remove('opacity-0', 'translate-y-4');
+            balArea.classList.add('opacity-100', 'translate-y-0');
+        }
+
+        // --- 3. 準備寫入 (點擊確認付款後) ---
+        async function startNFCWrite() {
+            if(selectedAmt <= 0) return;
+            
+            isWriting = true;
+            writeOverlay.classList.remove('hidden');
+
+            const newBalance = currentBalance + selectedAmt;
+            
+            // 準備數據：JSON 字符串
+            const dataToWrite = JSON.stringify({
+                type: 'glasspay',
+                balance: newBalance,
+                last_topup: new Date().toISOString()
+            });
+
+            try {
+                // 這裡我們假設 ndef 對象已經存在 (因為之前 scan 過)
+                // 在 Android Chrome，寫入時如果已經在 scan，會自動觸發寫入
+                await ndef.write({
+                    records: [{ recordType: "text", data: dataToWrite }]
+                });
+
+                // 寫入成功
+                handleWriteSuccess(newBalance);
+
+            } catch (error) {
+                alert("寫入失敗: " + error);
+                cancelWrite();
+            }
+        }
+
+        function handleWriteSuccess(newVal) {
+            isWriting = false;
+            currentBalance = newVal;
+            
+            // UI 更新
+            writeOverlay.classList.add('hidden');
+            successOverlay.classList.remove('hidden');
+            setTimeout(() => successOverlay.classList.remove('opacity-0'), 10);
+            
+            if(navigator.vibrate) navigator.vibrate([100, 50, 100]);
+
+            // 延遲後返回
+            setTimeout(() => {
+                successOverlay.classList.add('opacity-0');
+                setTimeout(() => successOverlay.classList.add('hidden'), 300);
+                
+                // 更新餘額顯示
+                balanceDisplay.innerText = currentBalance.toFixed(2);
+                
+                // 重置選擇
+                selectedAmt = 0;
+                document.getElementById('custom-input').value = '';
+                document.querySelectorAll('.amount-btn').forEach(btn => btn.classList.remove('selected'));
+                updatePayButton();
+            }, 2000);
+        }
+
+        function cancelWrite() {
+            isWriting = false;
+            writeOverlay.classList.add('hidden');
+        }
+
+        // --- 4. 輔助功能 ---
+        function selectAmount(amt) {
+            selectedAmt = amt;
+            document.querySelectorAll('.amount-btn').forEach(btn => btn.classList.remove('selected'));
+            event.currentTarget.classList.add('selected');
+            document.getElementById('custom-input').value = '';
+            updatePayButton();
+        }
+
+        function handleCustomInput() {
+            const val = parseFloat(document.getElementById('custom-input').value);
+            document.querySelectorAll('.amount-btn').forEach(btn => btn.classList.remove('selected'));
+            if(val > 0) {
+                selectedAmt = val;
+            } else {
+                selectedAmt = 0;
+            }
+            updatePayButton();
+        }
+
+        function updatePayButton() {
+            if(selectedAmt > 0) {
+                payBtn.disabled = false;
+                payBtn.innerHTML = `確認增值 $${selectedAmt} <i class="ph-bold ph-arrow-right"></i>`;
+            } else {
+                payBtn.disabled = true;
+                payBtn.innerText = "請選擇金額";
+            }
+        }
+
+        function resetSystem() {
+            // 重新加載頁面最乾淨
+            location.reload();
+        }
     </script>
 </body>
 </html>
+
+
